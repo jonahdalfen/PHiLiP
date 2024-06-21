@@ -21,6 +21,7 @@
 #include "physics/model_factory.h"
 #include "physics/physics.h"
 #include "physics/physics_factory.h"
+#include "total_pressure_loss_functional.hpp"
 
 /// Returns y = Ax.
 /** Had to rewrite this instead of 
@@ -1319,6 +1320,13 @@ FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(
             return std::make_shared<LiftDragFunctional<dim,nstate,real,MeshType>>(
                 dg,
                 LiftDragFunctional<dim,dim+2,double,MeshType>::Functional_types::drag);
+        }
+    }else if(functional_type == FunctionalTypeEnum::total_pressure_loss){
+        if constexpr(dim==2 && 
+                     nstate==(dim+2) && 
+                     std::is_same<MeshType, dealii::parallel::distributed::Triangulation<dim>>::value)
+        {
+            return std::make_shared<TotalPressureLoss<dim,nstate,real,MeshType>>(dg);
         }
     }else if(functional_type == FunctionalTypeEnum::solution_integral) {
         std::shared_ptr< DGBaseState<dim,nstate,double,MeshType>> dg_state = std::dynamic_pointer_cast< DGBaseState<dim,nstate,double, MeshType>>(dg);

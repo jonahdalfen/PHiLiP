@@ -26,7 +26,8 @@ public:
         lift,
         drag,
         solution_integral,
-        outlet_pressure_integral
+        outlet_pressure_integral,
+        total_pressure_loss
     };
     /// Selection of functinal type
     FunctionalType functional_type;

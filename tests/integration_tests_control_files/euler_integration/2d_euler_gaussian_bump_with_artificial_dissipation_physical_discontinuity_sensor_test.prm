@@ -61,6 +61,9 @@ subsection ODE solver
 
   # Explicit or implicit solverChoices are <explicit|implicit>.
   set ode_solver_type  = implicit
+
+  # Output solution every 100 steps
+  set output_solution_every_x_steps = 100
 end
 
 subsection manufactured solution convergence study
