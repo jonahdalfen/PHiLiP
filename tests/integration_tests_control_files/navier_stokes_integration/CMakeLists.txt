@@ -163,3 +163,16 @@ add_test(
   COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_rans_sa_laxfriedrichs_manufactured_navah_5.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
+
+# =======================================
+# 2D Airfoil
+# =======================================
+# ----------------------------------------
+# - conv_num_flux = LxF; diss_num_flux = SIP (default)
+# ----------------------------------------
+configure_file(2d_ns_naca0012.prm 2d_ns_naca0012.prm COPYONLY)
+add_test(
+  NAME 2D_NAVIER_STOKES_NACA0012
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_ns_naca0012.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
