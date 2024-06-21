@@ -182,6 +182,13 @@ add_test(
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
 
+#Gaussian Bump 2D case.
+configure_file(2d_euler_gaussian_bump_test.prm 2d_euler_gaussian_bump_test.prm COPYONLY)
+add_test(
+	NAME MPI_2D_GAUSSIAN_BUMP
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_euler_gaussian_bump_test.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
 
 # Vortex test case takes wayyy too much time. It works, so uncomment below if you want to wait.
 # configure_file(2d_euler_vortex.prm 2d_euler_vortex.prm COPYONLY)

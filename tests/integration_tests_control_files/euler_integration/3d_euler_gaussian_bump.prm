@@ -43,6 +43,8 @@ subsection ODE solver
 
   # Explicit or implicit solverChoices are <explicit|implicit>.
   set ode_solver_type  = implicit
+
+  set output_solution_every_x_steps = 100
 end
 
 subsection flow_solver

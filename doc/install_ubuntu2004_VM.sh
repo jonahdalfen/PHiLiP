@@ -1,5 +1,5 @@
 # Ubuntu minimal installation VirtualBox
-LINK_TO_YOUR_PHiLiP_REPO="https://github.com/dougshidong/PHiLiP.git"
+##LINK_TO_YOUR_PHiLiP_REPO="https://github.com/jonahdalfen/PHiLiP.git"
 
 ### Download necessary packages
 sudo apt install -y \
@@ -50,7 +50,7 @@ git clone https://github.com/dougshidong/.vim.git
 ## Setup Libraries directories
 cd
 mkdir -p Libraries
-mkdir -p Codes
+##mkdir -p Codes
 
 ## Git clone libraries
 (cd "$Libraries"; \
@@ -156,7 +156,7 @@ mkdir -p Codes
 
 ## PHiLiP
 (cd $Codes ;\
-        git clone ${LINK_TO_YOUR_PHiLiP_REPO} ;\
+   ##     git clone ${LINK_TO_YOUR_PHiLiP_REPO} ;\
         cd $Codes/PHiLiP ;\
         git checkout master ;\
         git remote add upstream https://github.com/dougshidong/PHiLiP.git ;\
