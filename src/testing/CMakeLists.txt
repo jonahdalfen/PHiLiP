@@ -37,6 +37,7 @@ set(TESTS_SOURCE
     homogeneous_isotropic_turbulence_initialization_check.cpp
     khi_robustness.cpp
     turbulent_channel_flow_skin_friction_check.cpp
+    boundary_layer_mesh_optimization.cpp
     )
 
 foreach(dim RANGE 1 3)

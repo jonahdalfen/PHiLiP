@@ -1,6 +1,5 @@
-#ifndef __TOTAL_PRESSURE_LOSS_H__
-#define __TOTAL_PRESSURE_LOSS_H__
-
+#ifndef __TOTAL_SKIN_FRICTION_H__
+#define __TOTAL_SKIN_FRICTION_H__
 #include "functional.h"
 
 namespace PHiLiP {
@@ -9,14 +8,14 @@ template <int dim, int nstate, typename real, typename MeshType = dealii::Triang
 #else
 template <int dim, int nstate, typename real, typename MeshType = dealii::parallel::distributed::Triangulation<dim>>
 #endif
-class TotalPressureLoss : public Functional<dim,nstate,real,MeshType>
+class TotalSkinFriction : public Functional<dim,nstate,real,MeshType>
 {
     using FadType = Sacado::Fad::DFad<real>; ///< Sacado AD type for first derivatives.
     using FadFadType = Sacado::Fad::DFad<FadType>; ///< Sacado AD type that allows 2nd derivatives.
     /// @brief Casts DG's physics into an Euler physics reference.
 
 public:
-    TotalPressureLoss(
+    TotalSkinFriction(
         std::shared_ptr<DGBase<dim,real,MeshType>> _dg, 
         const bool                                 _uses_solution_values   = true,
         const bool                                 _uses_solution_gradient = false);

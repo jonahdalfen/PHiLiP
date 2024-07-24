@@ -23,7 +23,7 @@ void FunctionalParam::declare_parameters(dealii::ParameterHandler &prm)
                           " weighted_integral_boundary | "
                           " error_normLp_volume | "
                           " error_normLp_boundary | "
-                          "  total_pressure_loss | "
+                          "  total_skin_friction | "
                           " lift | "
                           " drag | "
                           " solution_integral | "
@@ -37,7 +37,7 @@ void FunctionalParam::declare_parameters(dealii::ParameterHandler &prm)
                           "  weighted_integral_boundary | "
                           "  error_normLp_volume | "
                           "  error_normLp_boundary | "
-                          "  total_pressure_loss | "
+                          "  total_skin_friction | "
                           "  lift | "
                           "  drag | "
                           "  solution_integral |"
@@ -96,7 +96,7 @@ void FunctionalParam::parse_parameters(dealii::ParameterHandler &prm)
         else if(functional_string == "weighted_integral_boundary") {functional_type = FunctionalType::weighted_integral_boundary;}
         else if(functional_string == "error_normLp_volume")        {functional_type = FunctionalType::error_normLp_volume;}
         else if(functional_string == "error_normLp_boundary")      {functional_type = FunctionalType::error_normLp_boundary;}
-        else if(functional_string == "total_pressure_loss")        {functional_type = FunctionalType::total_pressure_loss;}
+        else if(functional_string == "total_skin_friction")        {functional_type = FunctionalType::total_skin_friction;}
         else if(functional_string == "lift")                       {functional_type = FunctionalType::lift;}
         else if(functional_string == "drag")                       {functional_type = FunctionalType::drag;}
         else if(functional_string == "solution_integral")          {functional_type = FunctionalType::solution_integral;}

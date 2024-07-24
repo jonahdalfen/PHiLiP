@@ -20,17 +20,39 @@ void BaseParameterization<dim> :: output_design_variables(unsigned int /*iterati
 }
 
 template<int dim>
+void BaseParameterization<dim> ::  output_control_nodes(const std::string /*filename*/) const
+{
+}
+template<int dim>
+void BaseParameterization<dim> ::  output_control_nodes_with_interpolated_high_order_nodes() const
+{
+}
+template<int dim>
+void BaseParameterization<dim> ::  output_control_nodes_refined() const
+{
+}
+
+template<int dim>
 bool BaseParameterization<dim> :: has_design_variable_been_updated(
     const VectorType &current_design_var, 
     const VectorType &updated_design_var) const
 {
     VectorType diff = current_design_var;
     diff -= updated_design_var;
+    diff.update_ghost_values();
     
     bool is_design_variable_updated = true;
     if(diff.l2_norm() == 0.0) {is_design_variable_updated = false;}
     
     return is_design_variable_updated;
+}
+
+template<int dim>
+int BaseParameterization<dim> :: is_design_variable_valid(
+    const MatrixType & /*dXv_dXp*/, 
+    const VectorType & /*design_var*/) const
+{
+    return 0;
 }
 
 template class BaseParameterization<PHILIP_DIM>;

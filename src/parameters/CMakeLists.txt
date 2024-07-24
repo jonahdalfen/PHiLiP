@@ -16,7 +16,8 @@ set(SOURCE
     parameters_mesh_adaptation.cpp
     parameters_burgers.cpp
     parameters_time_refinement_study.cpp
-    all_parameters.cpp)
+    all_parameters.cpp
+    parameters_optimization.cpp)
 
 # Output library
 set(ParameterLib ParametersLibrary)

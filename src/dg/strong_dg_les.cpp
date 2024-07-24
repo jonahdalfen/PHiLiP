@@ -191,7 +191,7 @@ void DGStrongLES_ShearImproved<dim,nstate,real,MeshType>::update_cellwise_mean_q
     dealii::QGauss<1> quad_extra_1D(this->max_degree+1+overintegrate);
 
     const unsigned int n_quad_pts = quad_extra.size();
-    const unsigned int grid_degree = this->high_order_grid->fe_system.tensor_degree();
+    const unsigned int grid_degree = this->high_order_grid->get_current_fe_system().tensor_degree();
     const unsigned int poly_degree = this->max_degree;
     // Construct the basis functions and mapping shape functions.
     OPERATOR::basis_functions<dim,2*dim> soln_basis(1, poly_degree, grid_degree); 
@@ -226,7 +226,7 @@ void DGStrongLES_ShearImproved<dim,nstate,real,MeshType>::update_cellwise_mean_q
         }
 
         // We first need to extract the mapping support points (grid nodes) from high_order_grid.
-        const dealii::FESystem<dim> &fe_metric = this->high_order_grid->fe_system;
+        const dealii::FESystem<dim> &fe_metric = this->high_order_grid->get_current_fe_system();
         const unsigned int n_metric_dofs = fe_metric.dofs_per_cell;
         const unsigned int n_grid_nodes  = n_metric_dofs / dim;
         std::vector<dealii::types::global_dof_index> metric_dof_indices(n_metric_dofs);
@@ -523,7 +523,7 @@ void DGStrongLES_DynamicSmagorinsky<dim,nstate,real,MeshType>::update_cellwise_m
     dealii::QGauss<1> quad_extra_1D(this->max_degree+1+overintegrate);
 
     const unsigned int n_quad_pts = quad_extra.size();
-    const unsigned int grid_degree = this->high_order_grid->fe_system.tensor_degree();
+    const unsigned int grid_degree = this->high_order_grid->get_current_fe_system().tensor_degree();
     const unsigned int poly_degree = this->max_degree;
     // Construct the basis functions and mapping shape functions.
     OPERATOR::basis_functions<dim,2*dim> soln_basis(1, poly_degree, grid_degree); 
@@ -554,7 +554,7 @@ void DGStrongLES_DynamicSmagorinsky<dim,nstate,real,MeshType>::update_cellwise_m
         real cell_matrix_M_times_matrix_M_integral = 0.0;
 
         // We first need to extract the mapping support points (grid nodes) from high_order_grid.
-        const dealii::FESystem<dim> &fe_metric = this->high_order_grid->fe_system;
+        const dealii::FESystem<dim> &fe_metric = this->high_order_grid->get_current_fe_system();
         const unsigned int n_metric_dofs = fe_metric.dofs_per_cell;
         const unsigned int n_grid_nodes  = n_metric_dofs / dim;
         std::vector<dealii::types::global_dof_index> metric_dof_indices(n_metric_dofs);

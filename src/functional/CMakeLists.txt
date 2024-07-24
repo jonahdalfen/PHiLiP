@@ -5,7 +5,13 @@ SET(SOURCE
     adjoint.cpp
     lift_drag.cpp
     target_wall_pressure.cpp
-    total_pressure_loss_functional.cpp
+    total_skin_friction_functional.cpp
+    cell_distortion_functional.cpp
+    dual_weighted_residual_obj_func1.cpp
+    dual_weighted_residual_obj_func2.cpp
+    mesh_jacobian_deviation_functional.cpp
+    mesh_vertex_deviation_functional.cpp
+
     )
 
 foreach(dim RANGE 1 3)

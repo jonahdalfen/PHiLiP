@@ -182,6 +182,9 @@ public:
                                   const bool compute_dRdX = true, 
                                   const bool compute_d2R = true);
 
+    /// Set polynomial degree and interpolate solution.
+    void set_p_degree_and_interpolate_solution(const unsigned int poly_degree);
+
 private:
     /// Allocates the second derivatives.
     /** Is called when assembling the residual's second derivatives, and is currently empty

@@ -2,6 +2,7 @@
 #include "optimization/full_space_step.hpp"
 #include "optimization/kkt_operator.hpp"
 #include "optimization/kkt_birosghattas_preconditioners.hpp"
+#include "optimization/merit_function_l1.hpp"
 
 #include "global_counter.hpp"
 
@@ -11,6 +12,7 @@ template <class Real>
 FullSpace_BirosGhattas<Real>::
 FullSpace_BirosGhattas(
     ROL::ParameterList &parlist,
+    const dealii::TrilinosWrappers::SparseMatrix &regularization_matrix_,
     const ROL::Ptr<LineSearch<Real> > &lineSearch,
     const ROL::Ptr<Secant<Real> > &secant)
     : Step<Real>()
@@ -20,7 +22,10 @@ FullSpace_BirosGhattas(
     , econd_(CURVATURECONDITION_WOLFE)
     , verbosity_(0)
     , parlist_(parlist)
+    , regularization_matrix(regularization_matrix_)
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
+    , use_lagrange_multiplier(true)
+    , use_l1_merit_function(false)
 {
     // Parse parameter list
     ROL::ParameterList& Llist = parlist.sublist("Step").sublist("Line Search");
@@ -47,6 +52,21 @@ FullSpace_BirosGhattas(
     esec_ = StringToESecant(secantName_);
     secant_ = SecantFactory<Real>(parlist);
 
+    regularization_parameter_control = parlist.sublist("Full Space").get("regularization_parameter_control",1.0);
+    regularization_scaling_control = parlist.sublist("Full Space").get("regularization_scaling",10.0);
+    regularization_tol_low_control = parlist.sublist("Full Space").get("regularization_tol_low",1.0e-2);
+    regularization_tol_high_control = parlist.sublist("Full Space").get("regularization_tol_high",1.0e-1);
+    linear_iteration_limit = parlist.sublist("Full Space").get("Linear iteration Limit", 2000); 
+    
+    regularization_parameter_sim = parlist.sublist("Full Space").get("regularization_parameter_sim",1.0);;
+    regularization_scaling_sim = 2.0;
+    regularization_tol_low_sim = 1.0e-2;
+    regularization_tol_high_sim = 1.0e-1;
+    
+    regularization_parameter_adj = 0.0;
+    regularization_scaling_adj = 1.0;
+    regularization_tol_low_adj = 1.0e-2;
+    regularization_tol_high_adj = 1.0e-1;
 }
 
 template <class Real>
@@ -70,49 +90,6 @@ void FullSpace_BirosGhattas<Real>::computeLagrangianGradient(
     flow_constraint.flow_CFL_ = old_CFL;
     lagrangian_gradient.plus(objective_gradient);
 }
-
-template <class Real>
-void FullSpace_BirosGhattas<Real>::computeInitialLagrangeMultiplier(
-    Vector<Real> &lagrange_mult,
-    const Vector<Real> &design_variables,
-    const Vector<Real> &objective_gradient,
-    Constraint<Real> &equal_constraints) const
-{
-    Real one(1);
-
-    /* Form right-hand side of the augmented system. */
-    ROL::Ptr<Vector<Real> > rhs1 = design_variable_cloner_->clone();
-    ROL::Ptr<Vector<Real> > rhs2 = lagrange_variable_cloner_->clone();
-
-    // rhs1 is the negative gradient of the Lagrangian
-    computeLagrangianGradient(*rhs1, design_variables, lagrange_mult, objective_gradient, equal_constraints);
-    rhs1->scale(-one);
-    // rhs2 is zero
-    rhs2->zero();
-
-    /* Declare left-hand side of augmented system. */
-    ROL::Ptr<Vector<Real> > lhs1 = design_variable_cloner_->clone();
-    ROL::Ptr<Vector<Real> > lhs2 = lagrange_variable_cloner_->clone();
-
-    /* Compute linear solver tolerance. */
-    //Real b1norm  = rhs1->norm();
-    Real tol = std::sqrt(ROL_EPSILON<Real>());
-
-    /* Solve augmented system. */
-    const std::vector<Real> augiters = equal_constraints.solveAugmentedSystem(*lhs1, *lhs2, *rhs1, *rhs2, design_variables, tol);
-
-    /* Return updated Lagrange multiplier. */
-    // lhs2 is the multiplier update
-    lagrange_mult.plus(*lhs2);
-
-    // // Evaluate the full gradient wrt u
-    // obj_->gradient_1(*dualstate_,*state_,z,tol);
-    // // Solve adjoint equation
-    // con_->applyInverseAdjointJacobian_1(*adjoint_,*dualstate_,*state_,z,tol);
-    // adjoint_->scale(static_cast<Real>(-one));
-
-}
-
 
 template <class Real>
 void FullSpace_BirosGhattas<Real>::initialize(
@@ -160,9 +137,9 @@ void FullSpace_BirosGhattas<Real>::initialize(
 
     ROL::Ptr<StepState<Real> > step_state = Step<Real>::getState();
     design_variable_cloner_ = design_variables.clone();
-    design_variable_cloner_ = gradient.clone();
+//    design_variable_cloner_ = gradient.clone();
     lagrange_variable_cloner_ = lagrange_mult.clone();
-    lagrange_variable_cloner_ = equal_constraints_values.clone();
+//    lagrange_variable_cloner_ = equal_constraints_values.clone();
 
     lagrange_mult_search_direction_ = lagrange_mult.clone();
 
@@ -190,14 +167,20 @@ void FullSpace_BirosGhattas<Real>::initialize(
     algo_state.cnorm = lagrange_variable_cloner_->norm();
     algo_state.ncval++;
 
-    //computeInitialLagrangeMultiplier(lagrange_mult, design_variables, *(step_state->gradientVec), equal_constraints);
-    auto &equal_constraints_sim_opt = dynamic_cast<ROL::Constraint_SimOpt<Real>&>(equal_constraints);
-    const auto &objective_ctl_gradient = *(dynamic_cast<const Vector_SimOpt<Real>&>(*(step_state->gradientVec)).get_1());
-    const auto &design_variables_sim_opt = dynamic_cast<ROL::Vector_SimOpt<Real>&>(design_variables);
-    const auto &simulation_variables = *(design_variables_sim_opt.get_1());
-    const auto &control_variables    = *(design_variables_sim_opt.get_2());
-    equal_constraints_sim_opt.applyInverseAdjointJacobian_1(lagrange_mult, objective_ctl_gradient, simulation_variables, control_variables, tol);
-    lagrange_mult.scale(-1.0);
+    if(use_lagrange_multiplier)
+    {
+        auto &equal_constraints_sim_opt = dynamic_cast<ROL::Constraint_SimOpt<Real>&>(equal_constraints);
+        const auto &objective_sim_gradient = *(dynamic_cast<const Vector_SimOpt<Real>&>(*(step_state->gradientVec)).get_1());
+        const auto &design_variables_sim_opt = dynamic_cast<ROL::Vector_SimOpt<Real>&>(design_variables);
+        const auto &simulation_variables = *(design_variables_sim_opt.get_1());
+        const auto &control_variables    = *(design_variables_sim_opt.get_2());
+        equal_constraints_sim_opt.applyInverseAdjointJacobian_1(lagrange_mult, objective_sim_gradient, simulation_variables, control_variables, tol);
+        lagrange_mult.scale(-1.0);
+    }
+    else
+    {
+        lagrange_mult.zero();
+    }
 
     // Compute gradient of Lagrangian at new multiplier guess.
     ROL::Ptr<Vector<Real> > lagrangian_gradient = step_state->gradientVec->clone();
@@ -211,7 +194,8 @@ void FullSpace_BirosGhattas<Real>::initialize(
     //flow_constraint.flow_CFL_ = 1.0/std::pow(lagrangian_gradient->norm(), 1.00);
     //flow_constraint.flow_CFL_ = -std::max(1.0/std::pow(algo_state.cnorm, 2.0), 100.0);
     //flow_constraint.flow_CFL_ = -1e-0;
-    flow_constraint.flow_CFL_ = -100;
+    //flow_constraint.flow_CFL_ = -100;
+    flow_constraint.flow_CFL_ = 0;
 
     // // Not sure why this is done in ROL_Step.hpp
     // if ( bound_constraints.isActivated() ) {
@@ -229,14 +213,25 @@ void FullSpace_BirosGhattas<Real>::initialize(
     // I don't have to initialize with merit function since it does nothing
     // with it. But might as well be consistent.
     penalty_value_ = 1.0;
-    merit_function_ = ROL::makePtr<ROL::AugmentedLagrangian<Real>> (
-            makePtrFromRef<Objective<Real>>(objective),
-            makePtrFromRef<Constraint<Real>>(equal_constraints),
-            lagrange_mult,
-            penalty_value_,
-            design_variables,
-            equal_constraints_values,
-            parlist_);
+    if(use_l1_merit_function)
+    {
+        merit_function_ = ROL::makePtr<PHiLiP::MeritFunctionL1>(
+                makePtrFromRef<Objective<Real>>(objective),
+                makePtrFromRef<Constraint<Real>>(equal_constraints),
+                equal_constraints_values);
+    }
+    else
+    {
+        ROL::Ptr<Vector<Real>> design_variables_cloned = design_variables.clone();
+        merit_function_ = ROL::makePtr<ROL::AugmentedLagrangian<Real>> (
+                makePtrFromRef<Objective<Real>>(objective),
+                makePtrFromRef<Constraint<Real>>(equal_constraints),
+                lagrange_mult,
+                penalty_value_,
+                *design_variables_cloned,
+                equal_constraints_values,
+                parlist_);
+    }
 
     // Dummy search direction vector used to initialize the linesearch.
     ROL::Ptr<Vector<Real> > search_direction_dummy = design_variables.clone();
@@ -345,9 +340,9 @@ std::vector<double> FullSpace_BirosGhattas<Real>::solve_linear (
     //const double tolerance = 1e-11;
     //const double tolerance = std::max(1e-3 * rhs_norm, 1e-11);
     // Used for almost all the results:
-    const double tolerance = std::min(1e-4, std::max(1e-6 * rhs_norm, 1e-11));
+    const double tolerance = std::min(1e-4, std::max(1e-6 * rhs_norm, 1e-14));
 
-    dealii::SolverControl solver_control(2000, tolerance, true, true);
+    dealii::SolverControl solver_control(linear_iteration_limit, tolerance, true, true);
     solver_control.enable_history_data();
 
     (void) preconditioner;
@@ -407,9 +402,6 @@ std::vector<Real> FullSpace_BirosGhattas<Real>::solve_KKT_system(
     /* Form gradient of the Lagrangian. */
     ROL::Ptr<Vector<Real> > objective_gradient = design_variable_cloner_->clone();
     objective.gradient(*objective_gradient, design_variables, tol);
-    // Apply adjoint of equal_constraints Jacobian to current Lagrange multiplier.
-    ROL::Ptr<Vector<Real> > adjoint_jacobian_lagrange = design_variable_cloner_->clone();
-    equal_constraints.applyAdjointJacobian(*adjoint_jacobian_lagrange, lagrange_mult, design_variables, tol);
 
     /* Form right-hand side of the augmented system. */
     ROL::Ptr<Vector<Real> > rhs1 = design_variable_cloner_->clone();
@@ -435,7 +427,9 @@ std::vector<Real> FullSpace_BirosGhattas<Real>::solve_KKT_system(
         makePtrFromRef<Objective<Real>>(objective),
         makePtrFromRef<Constraint<Real>>(equal_constraints),
         makePtrFromRef<const Vector<Real>>(design_variables),
-        makePtrFromRef<const Vector<Real>>(lagrange_mult));
+        makePtrFromRef<const Vector<Real>>(lagrange_mult),
+        regularization_matrix,
+        regularization_parameter_sim, regularization_parameter_control, regularization_parameter_adj);
 
 
     std::shared_ptr<BirosGhattasPreconditioner<Real>> kkt_precond =
@@ -508,27 +502,15 @@ void FullSpace_BirosGhattas<Real>::compute(
     ROL::Ptr<StepState<Real> > step_state = Step<Real>::getState();
 
     Real tol = std::sqrt(ROL_EPSILON<Real>());
-    const Real one = 1.0;
-
+    //const Real one = 1.0;
+    
     /* Form gradient of the Lagrangian. */
     ROL::Ptr<Vector<Real> > objective_gradient = design_variable_cloner_->clone();
     objective.gradient(*objective_gradient, design_variables, tol);
-    // Apply adjoint of equal_constraints Jacobian to current Lagrange multiplier.
-    ROL::Ptr<Vector<Real> > adjoint_jacobian_lagrange = design_variable_cloner_->clone();
-    equal_constraints.applyAdjointJacobian(*adjoint_jacobian_lagrange, lagrange_mult, design_variables, tol);
 
-    /* Form right-hand side of the augmented system. */
-    ROL::Ptr<Vector<Real> > rhs1 = design_variable_cloner_->clone();
-    ROL::Ptr<Vector<Real> > rhs2 = lagrange_variable_cloner_->clone();
-    // rhs1 is the negative gradient of the Lagrangian
     ROL::Ptr<Vector<Real> > lagrangian_gradient = step_state->gradientVec->clone();
     computeLagrangianGradient(*lagrangian_gradient, design_variables, lagrange_mult, *objective_gradient, equal_constraints);
-    rhs1->set(*lagrangian_gradient);
-    rhs1->scale(-one);
-    // rhs2 is the contraint value
-    equal_constraints.value(*rhs2, design_variables, tol);
-    rhs2->scale(-one);
-
+    
     /* Declare left-hand side of augmented system. */
     ROL::Ptr<Vector<Real> > lhs1 = design_variable_cloner_->clone();
     ROL::Ptr<Vector<Real> > lhs2 = lagrange_variable_cloner_->clone();
@@ -540,7 +522,7 @@ void FullSpace_BirosGhattas<Real>::compute(
     /* Solve augmented system. */
     //const std::vector<Real> augiters = equal_constraints.solveAugmentedSystem(*lhs1, *lhs2, *rhs1, *rhs2, design_variables, tol);
     pcout
-        << "Startingto solve augmented system..."
+        << "Starting to solve augmented system..."
         << std::endl;
     //const std::vector<Real> kkt_iters = equal_constraints.solveAugmentedSystem(*lhs1, *lhs2, *rhs1, *rhs2, design_variables, tol);
     // {
@@ -575,8 +557,70 @@ void FullSpace_BirosGhattas<Real>::compute(
 
     {
         search_direction.set(*lhs1);
-        lagrange_mult_search_direction_->set(*lhs2);
+        if(use_lagrange_multiplier)
+        {
+            lagrange_mult_search_direction_->set(*lhs2);
+        }
+        else
+        {
+            lagrange_mult_search_direction_->zero();
+        }
     }
+    {
+        // Update simulation regularization parameter.
+        const Real ctl_norm = ((dynamic_cast<const Vector_SimOpt<Real>&>(search_direction)).get_2())->norm();
+        if(ctl_norm < regularization_tol_low_sim)
+        {
+            regularization_parameter_sim /= regularization_scaling_sim;
+        }
+        else if(ctl_norm > regularization_tol_high_sim)
+        {
+            regularization_parameter_sim *= regularization_scaling_sim;
+        }
+        else
+        {
+            regularization_parameter_sim = regularization_parameter_sim; // Remains unchanged.
+        }
+    }
+    {
+        // Update control regularization parameter.
+        const Real ctl_norm = ((dynamic_cast<const Vector_SimOpt<Real>&>(search_direction)).get_2())->norm();
+        if(ctl_norm < regularization_tol_low_control)
+        {
+            regularization_parameter_control /= regularization_scaling_control;
+        }
+        else if(ctl_norm > regularization_tol_high_control)
+        {
+            regularization_parameter_control *= regularization_scaling_control;
+        }
+        else
+        {
+            regularization_parameter_control = regularization_parameter_control; // Remains unchanged.
+        }
+        regularization_parameter_control = std::max(regularization_parameter_control, 0.0);
+        pcout<<"Norm of simulation search direction = "<<((dynamic_cast<const Vector_SimOpt<Real>&>(search_direction)).get_1())->norm()<<std::endl;
+        pcout<<"Norm of control search direction = "<<ctl_norm<<std::endl;
+        pcout<<"Norm of adjoint search direction = "<<lagrange_mult_search_direction_->norm()<<std::endl;
+    }
+    {
+        // Update adjoint regularization parameter.
+        const Real adj_norm = lagrange_mult_search_direction_->norm();
+        if(adj_norm < regularization_tol_low_adj)
+        {
+            regularization_parameter_adj /= regularization_scaling_adj;
+        }
+        else if(adj_norm > regularization_tol_high_adj)
+        {
+            regularization_parameter_adj *= regularization_scaling_adj;
+        }
+        else
+        {
+            regularization_parameter_adj = regularization_parameter_adj; // Remains unchanged.
+        }
+    }
+    pcout<<"Regularization parameter simulation for the next iteration = "<<regularization_parameter_sim<<std::endl;
+    pcout<<"Regularization parameter control for the next iteration = "<<regularization_parameter_control<<std::endl;
+    pcout<<"Regularization parameter adjoint for the next iteration = "<<regularization_parameter_adj<<std::endl;
     // std::cout
     //     << "search_direction.norm(): "
     //     << search_direction.norm()
@@ -608,7 +652,8 @@ void FullSpace_BirosGhattas<Real>::compute(
 
     //#pen_ = parlist.sublist("Step").sublist("Augmented Lagrangian").get("Initial Penalty Parameter",ten);
     /* Create merit function based on augmented Lagrangian */
-    const Real penalty_offset = 10;//1e-4;
+    /*
+    const Real penalty_offset = 10.0;//1e-4;
     penalty_value_ = computeAugmentedLagrangianPenalty(
         search_direction,
         *lagrange_mult_search_direction_,
@@ -618,32 +663,49 @@ void FullSpace_BirosGhattas<Real>::compute(
         *adjoint_jacobian_lagrange,
         equal_constraints,
         penalty_offset);
+    */
     const auto reduced_gradient = (dynamic_cast<Vector_SimOpt<Real>&>(*lagrangian_gradient)).get_2();
-    penalty_value_ = std::max(1e-0/reduced_gradient->norm(), 1.0);
-    //penalty_value_ = std::max(1e-2/lagrangian_gradient->norm(), 1.0);
+    //penalty_value_ = std::max(1.0/reduced_gradient->norm(), 1.0);
+    //penalty_value_ = 0.0;
+    penalty_value_ = std::max(1e-3/lagrangian_gradient->norm(), 1.0);
     pcout
         << "Finished computeAugmentedLagrangianPenalty..."
         << std::endl;
-    AugmentedLagrangian<Real> &augLag = dynamic_cast<AugmentedLagrangian<Real>&>(*merit_function_);
 
     step_state->nfval = 0;
     step_state->ngrad = 0;
     Real merit_function_value = 0.0;
+    Real directional_derivative_step = 0.0;
 
     bool linesearch_success = false;
     Real fold = 0.0;
     int n_searches = 0;
     while (!linesearch_success) {
-
-        augLag.reset(lagrange_mult, penalty_value_);
-
+        
         const bool changed_design_variables = true;
         merit_function_->update(design_variables, changed_design_variables, algo_state.iter);
-        fold = merit_function_value;
-        ROL::Ptr<Vector<Real> > merit_function_gradient = design_variable_cloner_->clone();
-        merit_function_->gradient( *merit_function_gradient, design_variables, tol );
-        Real directional_derivative_step = merit_function_gradient->dot(search_direction);
-        directional_derivative_step += step_state->constraintVec->dot(*lagrange_mult_search_direction_);
+        
+        if(use_l1_merit_function)
+        {
+            PHiLiP::MeritFunctionL1 &meritfun_l1 = dynamic_cast<PHiLiP::MeritFunctionL1 &>(*merit_function_);
+            meritfun_l1.set_penalty_parameter(design_variables);
+            penalty_value_ = meritfun_l1.penalty_parameter;
+            merit_function_value = merit_function_->value(design_variables, tol );
+            fold = merit_function_value;
+            directional_derivative_step = meritfun_l1.compute_directional_derivative(design_variables,search_direction);
+        }
+        else
+        {
+            AugmentedLagrangian<Real> &augLag = dynamic_cast<AugmentedLagrangian<Real>&>(*merit_function_);
+            augLag.reset(lagrange_mult, penalty_value_);
+            merit_function_value = merit_function_->value(design_variables, tol );
+            fold = merit_function_value;
+        
+            ROL::Ptr<Vector<Real> > merit_function_gradient = design_variable_cloner_->clone();
+            merit_function_->gradient( *merit_function_gradient, design_variables, tol );
+            directional_derivative_step = merit_function_gradient->dot(search_direction); 
+            directional_derivative_step += step_state->constraintVec->dot(*lagrange_mult_search_direction_);
+        }
         pcout
             << "Penalty value: " << penalty_value_
             << "Directional_derivative_step (Should be negative for descent direction)"
@@ -656,12 +718,11 @@ void FullSpace_BirosGhattas<Real>::compute(
         //}
 
         /* Perform line-search */
-        merit_function_value = merit_function_->value(design_variables, tol );
         pcout
             << "Performing line search..."
             << " Initial merit function value = " << merit_function_value
             << std::endl;
-        lineSearch_->setData(algo_state.gnorm,*merit_function_gradient);
+        //lineSearch_->setData(algo_state.gnorm,*merit_function_gradient);
 
         n_linesearches = 0;
         lineSearch_->run(step_state->searchSize,
@@ -704,8 +765,9 @@ void FullSpace_BirosGhattas<Real>::compute(
                 penalty_value_ = std::max(1e-0/reduced_gradient->norm(), 1.0);
             }
             if (n_searches > 2) {
-                pcout << " Linesearch failed in other direction... ending " << std::endl;
-                std::abort();
+                std::cout << " Linesearch failed in other direction... ending " << std::endl<<std::flush;
+                linesearch_success = true;
+                //std::abort();
             }
         }
         lineSearch_->setMaxitUpdate(step_state->searchSize, merit_function_value, fold);
@@ -724,7 +786,10 @@ void FullSpace_BirosGhattas<Real>::compute(
     //     lineSearch_->setMaxitUpdate(step_state->searchSize,fval_,algo_state.value);
     // }
     // Compute scaled descent direction
-    lagrange_mult_search_direction_->scale(step_state->searchSize);
+    if(use_lagrange_multiplier)
+    {
+        lagrange_mult_search_direction_->scale(step_state->searchSize);
+    }
     search_direction.scale(step_state->searchSize);
     if ( bound_constraints.isActivated() ) {
         search_direction.plus(design_variables);
@@ -803,7 +868,8 @@ void FullSpace_BirosGhattas<Real>::update(
     //flow_constraint.flow_CFL_ = 1.0/std::pow(algo_state.cnorm, 0.5);
     //flow_constraint.flow_CFL_ = 10 + 1.0/std::pow(algo_state.cnorm, 2.0);
     //flow_constraint.flow_CFL_ = 1.0/std::pow(algo_state.cnorm, 2.0);
-    flow_constraint.flow_CFL_ = -10000*std::max(1.0, 1.0/std::pow(algo_state.cnorm, 2.00));
+    //flow_constraint.flow_CFL_ = -10000*std::max(1.0, 1.0/std::pow(algo_state.cnorm, 2.00));
+    flow_constraint.flow_CFL_ = 0;
     //flow_constraint.flow_CFL_ = 0.0;
     //flow_constraint.flow_CFL_ = 1e-6;
 
@@ -840,6 +906,7 @@ void FullSpace_BirosGhattas<Real>::update(
         ;
     }
     MPI_Barrier(MPI_COMM_WORLD);
+    flow_constraint.output_results_vtk(output_count++);
 }
 
 template <class Real>

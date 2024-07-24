@@ -1582,7 +1582,7 @@ read_gmsh(std::string filename,
     std::vector<unsigned int> gmsh_l2h = dealii::Utilities::invert_permutation(gmsh_h2l);
 
     int icell = 0;
-    std::vector<dealii::types::global_dof_index> dof_indices(high_order_grid->fe_system.dofs_per_cell);
+    std::vector<dealii::types::global_dof_index> dof_indices(high_order_grid->get_current_fe_system().dofs_per_cell);
 
     std::vector<unsigned int> rotate_z90degree;
 

@@ -21,6 +21,7 @@ AllParameters::AllParameters ()
     , mesh_adaptation_param(MeshAdaptationParam())
     , functional_param(FunctionalParam())
     , time_refinement_study_param(TimeRefinementStudyParam())
+    , optimization_param(OptimizationParam())
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 { }
 
@@ -184,7 +185,8 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       " burgers_energy_conservation_rrk | "
                       " euler_entropy_conserving_split_forms_check | "
                       " h_refinement_study_isentropic_vortex | "
-                      " khi_robustness"),
+                      " khi_robustness"
+                      " boundary_layer_mesh_optimization | "),
                       "The type of test we want to solve. "
                       "Choices are " 
                       " <run_control | " 
@@ -224,7 +226,8 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       "  burgers_energy_conservation_rrk | "
                       "  euler_entropy_conserving_split_forms_check | "
                       "  h_refinement_study_isentropic_vortex | "
-                      "  khi_robustness>.");
+                      "  khi_robustness>."
+                      "  boundary_layer_mesh_optimization | ");
 
     prm.declare_entry("pde_type", "advection",
                       dealii::Patterns::Selection(
@@ -336,6 +339,7 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
     Parameters::FlowSolverParam::declare_parameters (prm);
     Parameters::FunctionalParam::declare_parameters (prm);
     Parameters::TimeRefinementStudyParam::declare_parameters (prm);
+    Parameters::OptimizationParam::declare_parameters (prm);
 
     pcout << "Done declaring inputs." << std::endl;
 }
@@ -398,6 +402,7 @@ void AllParameters::parse_parameters (dealii::ParameterHandler &prm)
                                                                         { test_type = euler_entropy_conserving_split_forms_check; }
     else if (test_string == "h_refinement_study_isentropic_vortex")     { test_type = h_refinement_study_isentropic_vortex; }
     else if (test_string == "khi_robustness")                           { test_type = khi_robustness; }
+    else if (test_string == "boundary_layer_mesh_optimization")         { test_type = boundary_layer_mesh_optimization; }
     
     // WARNING: Must assign model_type before pde_type
     const std::string model_string = prm.get("model_type");
@@ -576,6 +581,9 @@ void AllParameters::parse_parameters (dealii::ParameterHandler &prm)
     
     pcout << "Parsing time refinement study subsection..." << std::endl;
     time_refinement_study_param.parse_parameters (prm);
+
+    pcout << "Parsing optimization subsection..." << std::endl;
+    optimization_param.parse_parameters (prm);
 
     pcout << "Done parsing." << std::endl;
 

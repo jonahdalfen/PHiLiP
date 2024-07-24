@@ -21,7 +21,7 @@ subsection euler
 end
 
 subsection navier_stokes
-  set reynolds_number_inf                 = 6000000.0
+  set reynolds_number_inf                 = 5000.0
   set prandtl_number                      = 0.72
   set temperature_inf                     = 300.00
   set nondimensionalized_isothermal_wall_temperature = 1.0
@@ -37,7 +37,7 @@ subsection ODE solver
   set nonlinear_max_iterations            = 100
 
   # Nonlinear solver residual tolerance
-  set nonlinear_steady_residual_tolerance = 1e-4
+  set nonlinear_steady_residual_tolerance = 1e-11
 
   set initial_time_step = 0.1
   set time_step_factor_residual = 1.0
@@ -67,7 +67,7 @@ subsection linear solver
     set ilut_drop                 = 0.0
     # Amount of additional fill-in elements besides the sparse matrix
     # structure
-    set ilut_fill                 = 50
+    set ilut_fill                 =  2
 
     # Linear residual tolerance for convergence of the linear system
     set linear_residual_tolerance = 1e-10
@@ -85,7 +85,7 @@ end
 subsection flow_solver
   set flow_case_type = airfoil_2D
   set steady_state = true
-  set poly_degree = 1
+  set poly_degree = 0
   # set constant_time_step = 2E-4  
   # set final_time = 4
   # set do_compute_unsteady_data_and_write_to_table = true
@@ -102,7 +102,7 @@ subsection flow_solver
       set n_subdivision_x_0 = 50
       set n_subdivision_x_1 = 40
       set n_subdivision_x_2 = 50
-      set n_subdivision_y = 60
+      set n_subdivision_y = 5
       set airfoil_sampling_factor = 1
     end
   end

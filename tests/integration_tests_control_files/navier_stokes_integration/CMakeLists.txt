@@ -163,7 +163,6 @@ add_test(
   COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_rans_sa_laxfriedrichs_manufactured_navah_5.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-
 # =======================================
 # 2D Airfoil
 # =======================================

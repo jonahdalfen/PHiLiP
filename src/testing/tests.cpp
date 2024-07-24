@@ -45,6 +45,7 @@
 #include "homogeneous_isotropic_turbulence_initialization_check.h"
 #include "khi_robustness.h"
 #include "turbulent_channel_flow_skin_friction_check.h"
+#include "boundary_layer_mesh_optimization.hpp"
 
 namespace PHiLiP {
 namespace Tests {
@@ -309,6 +310,8 @@ std::unique_ptr< TestsBase > TestsFactory<dim,nstate,MeshType>
         if constexpr (dim==3 && nstate==dim+2)  return std::make_unique<EulerSplitEntropyCheck<dim, nstate>>(parameters_input, parameter_handler_input);
     } else if(test_type == Test_enum::khi_robustness) {
         if constexpr (dim==2 && nstate==dim+2)  return std::make_unique<KHIRobustness<dim, nstate>>(parameters_input, parameter_handler_input);
+    } else if(test_type == Test_enum::boundary_layer_mesh_optimization) {
+        if constexpr (dim==2 && nstate==dim+2)  return std::make_unique<BoundaryLayerMeshOptimization<dim, nstate>>(parameters_input, parameter_handler_input);
     } else {
         std::cout << "Invalid test. You probably forgot to add it to the list of tests in tests.cpp" << std::endl;
         std::abort();

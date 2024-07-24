@@ -59,7 +59,7 @@ unsigned int dRdW_form;
 unsigned int dRdW_mult;
 unsigned int dRdX_mult;
 unsigned int d2R_mult;
-
+unsigned int n_preconditioner_calls;
 
 namespace PHiLiP {
 
@@ -99,7 +99,7 @@ DGBase<dim,real,MeshType>::DGBase(
     , oneD_quadrature_collection(std::get<7>(collection_tuple))
     , oneD_face_quadrature(max_degree)
     , dof_handler(*triangulation, true)
-    , high_order_grid(std::make_shared<HighOrderGrid<dim,real,MeshType>>(grid_degree_input, triangulation, all_parameters->check_valid_metric_Jacobian, all_parameters->do_renumber_dofs, all_parameters->output_high_order_grid))
+    , high_order_grid(std::make_shared<HighOrderGrid<dim,real,MeshType>>(grid_degree_input, triangulation, all_parameters->output_high_order_grid))
     , fe_q_artificial_dissipation(1)
     , dof_handler_artificial_dissipation(*triangulation, false)
     , mpi_communicator(MPI_COMM_WORLD)
@@ -132,6 +132,36 @@ void DGBase<dim,real,MeshType>::set_high_order_grid(std::shared_ptr<HighOrderGri
     dof_handler.initialize(*triangulation, fe_collection);
     dof_handler_artificial_dissipation.initialize(*triangulation, fe_q_artificial_dissipation);
     set_all_cells_fe_degree(initial_degree);
+}
+
+template<int dim, typename real, typename MeshType>
+void DGBase<dim, real, MeshType> :: set_p_degree_and_interpolate_solution(const unsigned int poly_degree)
+{
+    using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; 
+    using DoFHandlerType   = typename dealii::DoFHandler<dim>;
+    using SolutionTransfer = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
+
+    assert(get_min_fe_degree() == get_max_fe_degree());
+    const unsigned int current_poly_degree = get_min_fe_degree();
+    pcout<<"Changing poly degree from "<<current_poly_degree<< " to "<<poly_degree<<" and interpolating solution."<<std::endl;
+    VectorType solution_coarse = solution;
+    solution_coarse.update_ghost_values();
+
+    SolutionTransfer solution_transfer(dof_handler);
+    solution_transfer.prepare_for_coarsening_and_refinement(solution_coarse);
+
+    set_all_cells_fe_degree(poly_degree);
+    allocate_system();
+    solution.zero_out_ghosts();
+
+    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType,DoFHandlerType>,
+                                 decltype(solution_transfer)>) {
+        solution_transfer.interpolate(solution_coarse, solution);
+    } else {
+        solution_transfer.interpolate(solution);
+    }
+
+    solution.update_ghost_values();
 }
 
 
@@ -730,10 +760,10 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual (
     current_dofs_indices.resize(n_dofs_curr_cell);
     current_cell->get_dof_indices (current_dofs_indices);
 
-    const unsigned int grid_degree = this->high_order_grid->fe_system.tensor_degree();
+    const unsigned int grid_degree = this->high_order_grid->get_current_fe_system().tensor_degree();
     const unsigned int poly_degree = i_fele;
 
-    const unsigned int n_metric_dofs_cell = high_order_grid->fe_system.dofs_per_cell;
+    const unsigned int n_metric_dofs_cell = high_order_grid->get_current_fe_system().dofs_per_cell;
     std::vector<dealii::types::global_dof_index> current_metric_dofs_indices(n_metric_dofs_cell);
     std::vector<dealii::types::global_dof_index> neighbor_metric_dofs_indices(n_metric_dofs_cell);
     current_metric_cell->get_dof_indices (current_metric_dofs_indices);
@@ -862,7 +892,7 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual (
                 metric_neighbor_cell->get_dof_indices(neighbor_metric_dofs_indices);
 
                 const unsigned int poly_degree_ext = i_fele_n;
-                const unsigned int grid_degree_ext = this->high_order_grid->fe_system.tensor_degree();    
+                const unsigned int grid_degree_ext = this->high_order_grid->get_current_fe_system().tensor_degree();    
                 //constructor doesn't build anything
                 OPERATOR::metric_operators<real,dim,2*dim> metric_oper_ext(nstate, poly_degree_ext, grid_degree_ext,
                                                                            store_vol_flux_nodes,
@@ -953,7 +983,7 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual (
             metric_neighbor_cell->get_dof_indices(neighbor_metric_dofs_indices);
 
             const unsigned int poly_degree_ext = i_fele_n;
-            const unsigned int grid_degree_ext = this->high_order_grid->fe_system.tensor_degree();
+            const unsigned int grid_degree_ext = this->high_order_grid->get_current_fe_system().tensor_degree();
             //Check if the poly degree or mapping changed order, in which case, then we re-compute the corresponding basis
             OPERATOR::metric_operators<real,dim,2*dim> metric_oper_ext(nstate, poly_degree_ext, grid_degree_ext,
                                                                store_vol_flux_nodes,
@@ -1032,7 +1062,7 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual (
             const unsigned int poly_degree_ext = i_fele_n;
             // In future high_order_grids dof object/metric_cell should store the cell's fe degree.
             // For now high_order_grid only handles all cells of same grid degree.
-            const unsigned int grid_degree_ext = this->high_order_grid->fe_system.tensor_degree();
+            const unsigned int grid_degree_ext = this->high_order_grid->get_current_fe_system().tensor_degree();
             //Check if the poly degree or mapping changed order, in which case, then we re-compute the corresponding basis
             OPERATOR::metric_operators<real,dim,2*dim> metric_oper_ext(nstate, poly_degree_ext, grid_degree_ext,
                                                                store_vol_flux_nodes,
@@ -1459,7 +1489,7 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
 
     dealii::hp::FEValues<dim,dim>        fe_values_collection_volume_lagrange (mapping_collection, fe_collection_lagrange, volume_quadrature_collection, this->volume_update_flags);
 
-    const unsigned int init_grid_degree = high_order_grid->fe_system.tensor_degree();
+    const unsigned int init_grid_degree = high_order_grid->get_current_fe_system().tensor_degree();
     OPERATOR::basis_functions<dim,2*dim> soln_basis_int(1, max_degree, init_grid_degree); 
     OPERATOR::basis_functions<dim,2*dim> soln_basis_ext(1, max_degree, init_grid_degree); 
     OPERATOR::basis_functions<dim,2*dim> flux_basis_int(1, max_degree, init_grid_degree); 
@@ -1984,7 +2014,7 @@ void DGBase<dim,real,MeshType>::output_face_results_vtk (const unsigned int cycl
     //typename dealii::DataOut<dim>::CurvedCellRegion curved = dealii::DataOut<dim>::CurvedCellRegion::no_curved_cells;
 
     const dealii::Mapping<dim> &mapping = (*(high_order_grid->mapping_fe_field));
-    const int grid_degree = high_order_grid->max_degree;
+    const int grid_degree = high_order_grid->get_current_fe_system().tensor_degree();;
     //const int n_subdivisions = max_degree+1;//+30; // if write_higher_order_cells, n_subdivisions represents the order of the cell
     //const int n_subdivisions = 1;//+30; // if write_higher_order_cells, n_subdivisions represents the order of the cell
     const int n_subdivisions = grid_degree;
@@ -2102,7 +2132,7 @@ void DGBase<dim,real,MeshType>::output_results_vtk (const unsigned int cycle, co
     //typename dealii::DataOut<dim>::CurvedCellRegion curved = dealii::DataOut<dim>::CurvedCellRegion::no_curved_cells;
 
     const dealii::Mapping<dim> &mapping = (*(high_order_grid->mapping_fe_field));
-    const unsigned int grid_degree = high_order_grid->max_degree;
+    const unsigned int grid_degree = high_order_grid->get_current_fe_system().tensor_degree();;
     // If higher-order vtk output is not enabled, passing 0 will be interpreted as DataOutInterface::default_subdivisions
     const int n_subdivisions = (enable_higher_order_vtk_output) ? std::max(grid_degree,get_max_fe_degree()) : 0;
     data_out.build_patches(mapping, n_subdivisions, curved);
@@ -2461,7 +2491,7 @@ void DGBase<dim,real,MeshType>::evaluate_mass_matrices (bool do_inverse_mass_mat
     }
 
     // setup 1D operators for ONE STATE. We loop over states in assembly for speedup.
-    const unsigned int init_grid_degree = high_order_grid->fe_system.tensor_degree();
+    const unsigned int init_grid_degree = high_order_grid->get_current_fe_system().tensor_degree();
     OPERATOR::mapping_shape_functions<dim,2*dim> mapping_basis(1, max_degree, init_grid_degree);//first set at max degree
     OPERATOR::basis_functions<dim,2*dim> basis(1, max_degree, init_grid_degree);
     OPERATOR::local_mass<dim,2*dim> reference_mass_matrix(1, max_degree, init_grid_degree);//first set at max degree
@@ -2483,7 +2513,7 @@ void DGBase<dim,real,MeshType>::evaluate_mass_matrices (bool do_inverse_mass_mat
         const bool Cartesian_element = (cell->manifold_id() == dealii::numbers::flat_manifold_id);
 
         const unsigned int fe_index_curr_cell = cell->active_fe_index();
-        const unsigned int curr_grid_degree   = high_order_grid->fe_system.tensor_degree();//in the future the metric cell's should store a local grid degree. currently high_order_grid dof_handler_grid doesn't have that capability
+        const unsigned int curr_grid_degree   = high_order_grid->get_current_fe_system().tensor_degree();//in the future the metric cell's should store a local grid degree. currently high_order_grid dof_handler_grid doesn't have that capability
 
         //Check if need to recompute the 1D basis for the current degree (if different than previous cell)
         //That is, if the poly_degree, manifold type, or grid degree is different than previous reference operator
@@ -2505,8 +2535,8 @@ void DGBase<dim,real,MeshType>::evaluate_mass_matrices (bool do_inverse_mass_mat
         const unsigned int n_quad_pts  = volume_quadrature_collection[fe_index_curr_cell].size();
 
         //setup metric cell
-        const dealii::FESystem<dim> &fe_metric = high_order_grid->fe_system;
-        const unsigned int n_metric_dofs = high_order_grid->fe_system.dofs_per_cell;
+        const dealii::FESystem<dim> &fe_metric = high_order_grid->get_current_fe_system();
+        const unsigned int n_metric_dofs = high_order_grid->get_current_fe_system().dofs_per_cell;
         const unsigned int n_grid_nodes  = n_metric_dofs/dim;
         std::vector<dealii::types::global_dof_index> metric_dof_indices(n_metric_dofs);
         metric_cell->get_dof_indices (metric_dof_indices);
@@ -2805,7 +2835,7 @@ void DGBase<dim,real,MeshType>::apply_inverse_global_mass_matrix(
     const FR_enum FR_Type = this->all_parameters->flux_reconstruction_type;
     const FR_Aux_enum FR_Type_Aux = this->all_parameters->flux_reconstruction_aux_type;
      
-    const unsigned int init_grid_degree = high_order_grid->fe_system.tensor_degree();
+    const unsigned int init_grid_degree = high_order_grid->get_current_fe_system().tensor_degree();
     OPERATOR::mapping_shape_functions<dim,2*dim> mapping_basis(1, init_grid_degree, init_grid_degree);
      
     OPERATOR::FR_mass_inv<dim,2*dim> mass_inv(1, max_degree, init_grid_degree, FR_Type);
@@ -2816,9 +2846,9 @@ void DGBase<dim,real,MeshType>::apply_inverse_global_mass_matrix(
      
     mapping_basis.build_1D_shape_functions_at_volume_flux_nodes(high_order_grid->oneD_fe_system, oneD_quadrature_collection[max_degree]);
      
-    const unsigned int grid_degree = this->high_order_grid->fe_system.tensor_degree();
-    const dealii::FESystem<dim> &fe_metric = high_order_grid->fe_system;
-    const unsigned int n_metric_dofs = high_order_grid->fe_system.dofs_per_cell;
+    const unsigned int grid_degree = this->high_order_grid->get_current_fe_system().tensor_degree();
+    const dealii::FESystem<dim> &fe_metric = high_order_grid->get_current_fe_system();
+    const unsigned int n_metric_dofs = high_order_grid->get_current_fe_system().dofs_per_cell;
     auto metric_cell = high_order_grid->dof_handler_grid.begin_active();
 
     auto first_cell = dof_handler.begin_active();
@@ -2978,7 +3008,7 @@ void DGBase<dim,real,MeshType>::apply_global_mass_matrix(
     const FR_enum FR_Type = this->all_parameters->flux_reconstruction_type;
     const FR_Aux_enum FR_Type_Aux = this->all_parameters->flux_reconstruction_aux_type;
      
-    const unsigned int init_grid_degree = high_order_grid->fe_system.tensor_degree();
+    const unsigned int init_grid_degree = high_order_grid->get_current_fe_system().tensor_degree();
     OPERATOR::mapping_shape_functions<dim,2*dim> mapping_basis(1, max_degree, init_grid_degree);
      
     OPERATOR::FR_mass<dim,2*dim> mass(1, max_degree, init_grid_degree, FR_Type);
@@ -2988,9 +3018,9 @@ void DGBase<dim,real,MeshType>::apply_global_mass_matrix(
      
     mapping_basis.build_1D_shape_functions_at_volume_flux_nodes(high_order_grid->oneD_fe_system, oneD_quadrature_collection[max_degree]);
      
-    const unsigned int grid_degree = this->high_order_grid->fe_system.tensor_degree();
-    const dealii::FESystem<dim> &fe_metric = high_order_grid->fe_system;
-    const unsigned int n_metric_dofs = high_order_grid->fe_system.dofs_per_cell;
+    const unsigned int grid_degree = this->high_order_grid->get_current_fe_system().tensor_degree();
+    const dealii::FESystem<dim> &fe_metric = high_order_grid->get_current_fe_system();
+    const unsigned int n_metric_dofs = high_order_grid->get_current_fe_system().dofs_per_cell;
     auto metric_cell = high_order_grid->dof_handler_grid.begin_active();
 
     auto first_cell = dof_handler.begin_active();

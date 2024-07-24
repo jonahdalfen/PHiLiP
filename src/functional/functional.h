@@ -2,22 +2,21 @@
 #define __FUNCTIONAL_H__
 
 /* includes */
-#include <vector>
-#include <iostream>
-
-#include <Sacado.hpp>
-
-#include <deal.II/lac/la_parallel_vector.h>
-
 #include <deal.II/differentiation/ad/sacado_math.h>
 #include <deal.II/differentiation/ad/sacado_number_types.h>
 #include <deal.II/differentiation/ad/sacado_product_types.h>
-
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/lac/la_parallel_vector.h>
+
+#include <Sacado.hpp>
+#include <iostream>
+#include <vector>
 
 #include "dg/dg.h"
 #include "physics/physics.h"
+
+
 
 namespace PHiLiP {
 
@@ -47,6 +46,7 @@ class Functional
 {
     using FadType = Sacado::Fad::DFad<real>; ///< Sacado AD type for first derivatives.
     using FadFadType = Sacado::Fad::DFad<FadType>; ///< Sacado AD type that allows 2nd derivatives.
+    using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; ///< Parallel distributed vector 
 
 public:
     /// Smart pointer to DGBase
@@ -57,13 +57,15 @@ protected:
     std::shared_ptr<Physics::PhysicsBase<dim,nstate,FadFadType>> physics_fad_fad;
 
 public:
+    /// Destructor
+    virtual ~Functional() = default;
     /** Constructor.
      *  Since we don't have access to the Physics through DGBase, we recreate a Physics
      *  based on the parameter file of DGBase. However, this will not work if the
      *  physics have been overriden through DGWeak::set_physics() as seen in the
      *  diffusion_exact_adjoint test case.
      */
-    Functional(
+    explicit Functional(
         std::shared_ptr<PHiLiP::DGBase<dim,real,MeshType>> _dg,
         const bool _uses_solution_values = true,
         const bool _uses_solution_gradient = true);
@@ -75,9 +77,6 @@ public:
         std::shared_ptr<PHiLiP::Physics::PhysicsBase<dim,nstate,Sacado::Fad::DFad<Sacado::Fad::DFad<real>> >> _physics_fad_fad,
         const bool _uses_solution_values = true,
         const bool _uses_solution_gradient = true);
-
-    /// Destructor.
-    virtual ~Functional(){};
 
 public:
     /** Set the associated @ref DGBase's solution to @p solution_set. */
@@ -124,12 +123,22 @@ public:
     /// Vector for storing the derivatives with respect to each grid DoF
     dealii::LinearAlgebra::distributed::Vector<real> dIdX;
 
-    /// Sparse matrix for storing the functional partial second derivatives.
+    /// Sparse matr    LiftDragFunctional inherits frix for storing the functional partial second derivatives.
     std::shared_ptr<dealii::TrilinosWrappers::SparseMatrix> d2IdWdW;
     /// Sparse matrix for storing the functional partial second derivatives.
     std::shared_ptr<dealii::TrilinosWrappers::SparseMatrix> d2IdWdX;
     /// Sparse matrix for storing the functional partial second derivatives.
     std::shared_ptr<dealii::TrilinosWrappers::SparseMatrix> d2IdXdX;
+
+    /// Computes \f[ out_vector = d2IdWdW*in_vector \f]. 
+    virtual void d2IdWdW_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    /// Computes \f[ out_vector = d2IdWdX*in_vector \f]. 
+    virtual void d2IdWdX_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    /// Computes \f[ out_vector = d2IdWdX^T*in_vector \f]. 
+    virtual void d2IdWdX_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+    /// Computes \f[ out_vector = d2IdXdX*in_vector \f]. 
+    virtual void d2IdXdX_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
 
 private:
     /// Initializes/allocates the vectors used to check if we recompute

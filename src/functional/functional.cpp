@@ -25,7 +25,7 @@
 #include "dg/dg.h"
 #include "functional.h"
 #include "lift_drag.hpp"
-#include "total_pressure_loss_functional.hpp"
+#include "total_skin_friction_functional.hpp"
 
 /// Returns y = Ax.
 /** Had to rewrite this instead of 
@@ -436,6 +436,46 @@ void Functional<dim,nstate,real,MeshType>::allocate_derivatives(const bool compu
     }
 }
 
+template<int dim, int nstate, typename real, typename MeshType>
+void Functional<dim,nstate,real,MeshType>::d2IdWdW_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(d2IdWdW->m(), out_vector.size());
+    AssertDimension(d2IdWdW->n(), in_vector.size());
+    d2IdWdW->vmult(out_vector, in_vector);    
+}
+
+template<int dim, int nstate, typename real, typename MeshType>
+void Functional<dim,nstate,real,MeshType>::d2IdWdX_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(d2IdWdX->m(), out_vector.size());
+    AssertDimension(d2IdWdX->n(), in_vector.size());
+    d2IdWdX->vmult(out_vector, in_vector);    
+}
+
+template<int dim, int nstate, typename real, typename MeshType>
+void Functional<dim,nstate,real,MeshType>::d2IdWdX_Tvmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(d2IdWdX->m(), in_vector.size());
+    AssertDimension(d2IdWdX->n(), out_vector.size());
+    d2IdWdX->Tvmult(out_vector, in_vector);    
+}
+
+template<int dim, int nstate, typename real, typename MeshType>
+void Functional<dim,nstate,real,MeshType>::d2IdXdX_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(d2IdXdX->m(), out_vector.size());
+    AssertDimension(d2IdXdX->n(), in_vector.size());
+    d2IdXdX->vmult(out_vector, in_vector);    
+}
+
 
 template <int dim, int nstate, typename real, typename MeshType>
 void Functional<dim,nstate,real,MeshType>::set_derivatives(
@@ -822,7 +862,7 @@ real Functional<dim, nstate, real, MeshType>::evaluate_functional(
     real local_functional = 0.0;
 
     // for taking the local derivatives
-    const dealii::FESystem<dim,dim> &fe_metric = dg->high_order_grid->fe_system;
+    const dealii::FESystem<dim,dim> &fe_metric = dg->high_order_grid->get_current_fe_system();
     const unsigned int n_metric_dofs_cell = fe_metric.dofs_per_cell;
     std::vector<dealii::types::global_dof_index> cell_metric_dofs_indices(n_metric_dofs_cell);
 
@@ -1036,8 +1076,10 @@ dealii::LinearAlgebra::distributed::Vector<real> Functional<dim,nstate,real,Mesh
             soln_coeff[idof] = dg.solution[cell_soln_dofs_indices[idof]];
         }
 
+
+
         // Get metric coefficients
-        const dealii::FESystem<dim,dim> &fe_metric = dg.high_order_grid->fe_system;
+        const dealii::FESystem<dim,dim> &fe_metric = dg.high_order_grid->get_current_fe_system();
         const unsigned int n_metric_dofs_cell = fe_metric.dofs_per_cell;
         std::vector<dealii::types::global_dof_index> cell_metric_dofs_indices(n_metric_dofs_cell);
         metric_cell->get_dof_indices (cell_metric_dofs_indices);
@@ -1108,6 +1150,7 @@ dealii::LinearAlgebra::distributed::Vector<real> Functional<dim,nstate,real,Mesh
     return dIdw;
 }
 
+
 template <int dim, int nstate, typename real, typename MeshType>
 dealii::LinearAlgebra::distributed::Vector<real> Functional<dim,nstate,real,MeshType>::evaluate_dIdX_finiteDifferences(
     PHiLiP::DGBase<dim,real,MeshType> &dg, 
@@ -1157,7 +1200,7 @@ dealii::LinearAlgebra::distributed::Vector<real> Functional<dim,nstate,real,Mesh
         }
 
         // Get metric coefficients
-        const dealii::FESystem<dim,dim> &fe_metric = dg.high_order_grid->fe_system;
+        const dealii::FESystem<dim,dim> &fe_metric = dg.high_order_grid->get_current_fe_system();
         const unsigned int n_metric_dofs_cell = fe_metric.dofs_per_cell;
         std::vector<dealii::types::global_dof_index> cell_metric_dofs_indices(n_metric_dofs_cell);
         metric_cell->get_dof_indices (cell_metric_dofs_indices);
@@ -1325,12 +1368,12 @@ FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(
                 dg,
                 LiftDragFunctional<dim,dim+2,double,MeshType>::Functional_types::drag);
         }
-    }else if(functional_type == FunctionalTypeEnum::total_pressure_loss){
+    }else if(functional_type == FunctionalTypeEnum::total_skin_friction){
         if constexpr(dim==2 && 
                      nstate==(dim+2) && 
                      std::is_same<MeshType, dealii::parallel::distributed::Triangulation<dim>>::value)
         {
-            return std::make_shared<TotalPressureLoss<dim,nstate,real,MeshType>>(dg);
+            return std::make_shared<TotalSkinFriction<dim,nstate,real,MeshType>>(dg);
         }
     }else if(functional_type == FunctionalTypeEnum::solution_integral) {
         std::shared_ptr< DGBaseState<dim,nstate,double,MeshType>> dg_state = std::dynamic_pointer_cast< DGBaseState<dim,nstate,double, MeshType>>(dg);

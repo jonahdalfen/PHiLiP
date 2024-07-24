@@ -13,6 +13,7 @@
 #include "parameters/parameters_navier_stokes.h"
 #include "parameters/parameters_physics_model.h"
 
+#include "parameters/parameters_optimization.h"
 #include "parameters/parameters_reduced_order.h"
 #include "parameters/parameters_burgers.h"
 #include "parameters/parameters_grid_refinement_study.h"
@@ -61,6 +62,8 @@ public:
     FunctionalParam functional_param;
     /// Contains the parameters for time refinement study
     TimeRefinementStudyParam time_refinement_study_param;
+    /// Contains parameters for optimization.
+    OptimizationParam optimization_param;
 
     /// Number of dimensions. Note that it has to match the executable PHiLiP_xD
     unsigned int dimension;
@@ -193,6 +196,7 @@ public:
         euler_entropy_conserving_split_forms_check,
         h_refinement_study_isentropic_vortex,
         khi_robustness,
+        boundary_layer_mesh_optimization,
         homogeneous_isotropic_turbulence_initialization_check,
         turbulent_channel_flow_skin_friction_check,
     };
