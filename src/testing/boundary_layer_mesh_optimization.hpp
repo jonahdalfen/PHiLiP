@@ -20,6 +20,14 @@ public:
 
     /// Runs the test to check the location of refined cell after performing goal-oriented mesh adaptation.
     int run_test() const;
+
+    /// Outputs vtk files with primal and adjoint solutions.
+    double output_vtk_files(std::shared_ptr<DGBase<dim,double>> dg, const int count_val) const;
+
+    void evaluate_regularization_matrix(
+        dealii::TrilinosWrappers::SparseMatrix &regularization_matrix,
+        std::shared_ptr<DGBase<dim,double>> dg) const;
+
 }; 
 
 } // Tests namespace

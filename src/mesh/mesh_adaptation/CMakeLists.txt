@@ -4,7 +4,8 @@ set(MESH_ADAPTATION_SRC
     mesh_adaptation.cpp
     anisotropic_mesh_adaptation.cpp
     metric_to_mesh_generator.cpp
-    fe_values_shape_hessian.cpp)
+    fe_values_shape_hessian.cpp
+    mesh_optimizer.cpp)
 
 foreach(dim RANGE 1 3)
 
@@ -18,11 +19,15 @@ foreach(dim RANGE 1 3)
     string(CONCAT HighOrderGridLib HighOrderGrid_${dim}D)
     target_link_libraries(${MeshAdaptationLib} ${HighOrderGridLib})
 
+    string(CONCAT OptimizationLib Optimization_${dim}D)
+    target_link_libraries(${MeshAdaptationLib} ${OptimizationLib})
+
     # Setup target with deal.II
     if(NOT DOC_ONLY)
         DEAL_II_SETUP_TARGET(${MeshAdaptationLib})
     endif()
 
     unset(HighOrderGridLib)
+    unset(OptimizationLib)
     unset(MeshAdaptationLib)
 endforeach()
