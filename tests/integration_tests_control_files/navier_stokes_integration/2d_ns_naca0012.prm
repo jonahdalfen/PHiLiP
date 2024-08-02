@@ -3,14 +3,14 @@
 # Number of dimensions
 set dimension = 2
 
-set run_type = flow_simulation
+set test_type = boundary_layer_mesh_optimization
 set pde_type  = navier_stokes
 
 set conv_num_flux = roe
 set diss_num_flux = symm_internal_penalty
 
 # DG related parameters
-# set overintegration = 0
+set overintegration = 8
 set use_weak_form = true
 # set flux_nodes_type = GL
 
@@ -81,11 +81,37 @@ subsection linear solver
   end 
 end
 
+subsection functional
+  # functional choice
+  set functional_type = total_skin_friction
+end
+
+subsection optimization
+    set optimization_type = full_space
+
+    set gradient_tolerance = 1.0e-10 
+    set max_design_cycles = 500
+    set linear_iteration_limit = 700
+    set initial_step_size = 1.0
+    set functional_evaluation_limit = 30
+    set line_search_method = Backtracking
+    set line_search_curvature = Null Curvature Condition
+    set full_space_preconditioner = P2A
+    set mesh_weight_factor = 0.2 #0.5
+
+    set regularization_parameter_control = 1.0
+    set regularization_parameter_sim = 1.0
+    set regularization_scaling = 2.0
+    set regularization_tol_low = 1.0e-2
+    set regularization_tol_high = 1.0e-1
+end
 
 subsection flow_solver
   set flow_case_type = airfoil_2D
   set steady_state = true
+  #set steady_state_polynomial_ramping = true
   set poly_degree = 0
+  set max_poly_degree_for_adaptation = 2
   # set constant_time_step = 2E-4  
   # set final_time = 4
   # set do_compute_unsteady_data_and_write_to_table = true
@@ -97,11 +123,11 @@ subsection flow_solver
       set height = 5.0
       set length_b2 = 10.0
       set incline_factor = 0.1
-      set bias_factor = 3.0
+      set bias_factor = 1.5
       set refinements = 0
-      set n_subdivision_x_0 = 50
-      set n_subdivision_x_1 = 40
-      set n_subdivision_x_2 = 50
+      set n_subdivision_x_0 = 10
+      set n_subdivision_x_1 = 3
+      set n_subdivision_x_2 = 12
       set n_subdivision_y = 5
       set airfoil_sampling_factor = 1
     end

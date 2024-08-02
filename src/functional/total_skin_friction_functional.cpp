@@ -37,7 +37,11 @@ template<int dim, int nstate, typename real, typename MeshType>
                     drag_direction[0] = cos(navierstokes.angle_of_attack);
                     drag_direction[1] = sin(navierstokes.angle_of_attack);
                  }
-                return -(navierstokes.compute_wall_shear_stress(soln_at_q, soln_grad_at_q, normal) * normal) * drag_direction;
+                 const std::array<real2,nstate> primitive_soln = navierstokes.convert_conservative_to_primitive_templated(soln_at_q); // from Euler
+                 const std::array<dealii::Tensor<1,dim,real2>,nstate> primitive_soln_gradient
+                 = navierstokes.convert_conservative_gradient_to_primitive_gradient_templated(soln_at_q,soln_grad_at_q);
+                 real2 output_val = (navierstokes.compute_pressure(soln_at_q) * normal -(navierstokes.compute_viscous_stress_tensor(primitive_soln, primitive_soln_gradient) * normal)) * drag_direction;
+                 return output_val;
             } 
             return 0.0;
         }

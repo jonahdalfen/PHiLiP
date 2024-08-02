@@ -27,6 +27,8 @@ public:
     void evaluate_regularization_matrix(
         dealii::TrilinosWrappers::SparseMatrix &regularization_matrix,
         std::shared_ptr<DGBase<dim,double>> dg) const;
+    void write_solution_volume_nodes_to_file(std::shared_ptr<DGBase<dim,double>> dg) const;
+    void read_solution_volume_nodes_from_file(std::shared_ptr<DGBase<dim,double>> dg) const;
 
 }; 
 
