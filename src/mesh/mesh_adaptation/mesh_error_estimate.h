@@ -208,7 +208,7 @@ public:
 protected:
     MPI_Comm mpi_communicator; ///< MPI communicator
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
-
+    unsigned int icompute = 8000;
 }; // DualWeightedResidualError class
 
 } // namespace PHiLiP

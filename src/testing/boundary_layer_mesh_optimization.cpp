@@ -7,11 +7,10 @@
 #include "mesh/mesh_adaptation/mesh_optimizer.hpp"
 
 
+
 namespace PHiLiP {
 namespace Tests {
-
-
-
+ 
 template <int dim, int nstate>
 BoundaryLayerMeshOptimization<dim, nstate> :: BoundaryLayerMeshOptimization(
     const Parameters::AllParameters *const parameters_input,
@@ -187,6 +186,11 @@ double BoundaryLayerMeshOptimization<dim, nstate> ::output_vtk_files(std::shared
     const int outputval = 7000 + count_val;
     dg->output_results_vtk(outputval);
 
+    std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(dg);
+    const double abs_dwr_error = dwr_error_val->total_dual_weighted_residual_error();
+    dg->assemble_residual();
+    return abs_dwr_error;
+
     return 0;
 }
 
@@ -199,7 +203,9 @@ int BoundaryLayerMeshOptimization<dim, nstate> :: run_test() const
     int output_val = 0;
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     flow_solver->run();
+    output_vtk_files(flow_solver->dg, ++output_val);
 
+/*
     dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson;
     evaluate_regularization_matrix(regularization_matrix_poisson, flow_solver->dg);
     std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = 
@@ -207,34 +213,50 @@ int BoundaryLayerMeshOptimization<dim, nstate> :: run_test() const
 
     const bool output_refined_nodes = false;
     const bool use_oneD_parameteriation = true;
+
+    
     mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson, use_oneD_parameteriation, output_refined_nodes, output_val);
-    std::cout<<"Completed optimization with p0."<<std::endl;
-    flow_solver->run();
+   std::cout<<"Completed optimization with p0."<<std::endl;
+   flow_solver->run();
+*/
+    // write_solution_volume_nodes_to_file(flow_solver->dg);
 
-    write_solution_volume_nodes_to_file(flow_solver->dg);
-
-    //read_solution_volume_nodes_from_file(flow_solver->dg);
+    // read_solution_volume_nodes_from_file(flow_solver->dg);
     output_vtk_files(flow_solver->dg, output_val+1);
-
-    const unsigned int grid_degree_updated = 2;
-    flow_solver->dg->high_order_grid->set_q_degree(grid_degree_updated, true);
+  
+    // std::cout<<"Interpolating grid from q1 to q2."<<std::endl;
+    // const unsigned int grid_degree_updated = 2;
+    // flow_solver->dg->high_order_grid->set_q_degree(grid_degree_updated, true);
+    /*
+    output_vtk_files(flow_solver->dg, output_val+1);
     dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson_q2;
     evaluate_regularization_matrix(regularization_matrix_poisson_q2, flow_solver->dg);
     mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson_q2, use_oneD_parameteriation, output_refined_nodes, output_val);
-    flow_solver->run();
     output_vtk_files(flow_solver->dg, output_val+1);
+    write_solution_volume_nodes_to_file(flow_solver->dg);
+    */
+    // Refine and interpolate the mesh
+    // read_solution_volume_nodes_from_file(flow_solver->dg);
+    /*
+    std::unique_ptr<MeshAdaptation<dim,double>> meshadaptation = std::make_unique<MeshAdaptation<dim,double>>(flow_solver->dg, &(param.mesh_adaptation_param));
+    meshadaptation->adapt_mesh();
+    dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson_q2_refined;
+    evaluate_regularization_matrix(regularization_matrix_poisson_q2_refined, flow_solver->dg);
+    mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson_q2_refined, use_oneD_parameteriation, output_refined_nodes, output_val);
+    */
+    // output_vtk_files(flow_solver->dg, ++output_val);
+    //write_solution_volume_nodes_to_file(flow_solver->dg);
 
 
 
-/*
 
-    flow_solver->dg->set_p_degree_and_interpolate_solution(1);
-    mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson, use_oneD_parameteriation, output_refined_nodes, output_val);
-    flow_solver->run();
-    std::cout<<"Completed optimization with p1. Outputting file with converged flow..."<<std::endl;
+    // flow_solver->dg->set_p_degree_and_interpolate_solution(1);
+    // mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson, use_oneD_parameteriation, output_refined_nodes, output_val);
+    // flow_solver->run();
+    // std::cout<<"Completed optimization with p1. Outputting file with converged flow..."<<std::endl;
 
-    output_vtk_files(flow_solver->dg, output_val+1);
-*/
+    // output_vtk_files(flow_solver->dg, output_val+1);
+
     return 0;
 }
 

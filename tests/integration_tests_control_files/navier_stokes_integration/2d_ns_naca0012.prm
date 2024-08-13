@@ -16,18 +16,28 @@ set use_weak_form = true
 
 subsection euler
   set reference_length = 1.0
-  set mach_infinity = 0.5
+  set mach_infinity = 0.2
   set angle_of_attack = 0.0
 end
 
 subsection navier_stokes
-  set reynolds_number_inf                 = 5000.0
+  set reynolds_number_inf                 = 50000.0
   set prandtl_number                      = 0.72
   set temperature_inf                     = 300.00
   set nondimensionalized_isothermal_wall_temperature = 1.0
   set thermal_boundary_condition_type = isothermal
   set use_constant_viscosity = true
   set nondimensionalized_constant_viscosity = 1.0
+end
+
+subsection mesh adaptation
+    set total_mesh_adaptation_cycles = 1
+    set use_goal_oriented_mesh_adaptation = false
+    set mesh_adaptation_type = h_adaptation
+    subsection fixed-fraction
+      set refine_fraction = 1.0
+      set h_coarsen_fraction = 0.0
+    end
 end
 
 subsection ODE solver
@@ -97,7 +107,7 @@ subsection optimization
     set line_search_method = Backtracking
     set line_search_curvature = Null Curvature Condition
     set full_space_preconditioner = P2A
-    set mesh_weight_factor = 0.2 #0.5
+    set mesh_weight_factor = 0.02 #0.5
 
     set regularization_parameter_control = 1.0
     set regularization_parameter_sim = 1.0
