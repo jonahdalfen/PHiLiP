@@ -140,13 +140,10 @@ inline real ManufacturedSolutionAtan<dim,real>
 
 template <int dim, typename real>
 inline real ManufacturedSolutionBoundaryLayer<dim,real>
-::value(const dealii::Point<dim,real> &point, const unsigned int istate) const
+::value(const dealii::Point<dim,real> &point, const unsigned int /*istate*/) const
 {
-    real val = 1.0;
-    for(unsigned int d = 0; d < dim; ++d){
-        real x = point[d];
-        val *= x + (exp(x/epsilon[istate][d])-1.0)/(1.0-exp(1.0/epsilon[istate][d]));
-    }
+    real val = U_0 *(1.0 - exp(-k * point[1] / (5 * pow((point[0] + c), 0.5) / pow(Re, 0.5))));
+    
     return val;
 }
 
@@ -453,30 +450,34 @@ inline dealii::Tensor<1,dim,real> ManufacturedSolutionAtan<dim,real>
 
 template <int dim, typename real>
 inline dealii::Tensor<1,dim,real> ManufacturedSolutionBoundaryLayer<dim,real>
-::gradient(const dealii::Point<dim,real> &point, const unsigned int istate) const
+::gradient(const dealii::Point<dim,real> &point, const unsigned int /*istate*/) const
 {
     dealii::Tensor<1,dim,real> gradient;
-    if(dim == 1){
-        const real x = point[0];
-        gradient[0] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0])/(1.0-exp(1.0/epsilon[istate][0])));
-    }else if(dim == 2){
-        const real x = point[0], y = point[1];
-        gradient[0] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0])/(1.0-exp(1.0/epsilon[istate][0])))
-                    * (y + (exp(y/epsilon[istate][1])-1.0)               /(1.0-exp(1.0/epsilon[istate][1])));
-        gradient[1] = (x + (exp(x/epsilon[istate][0])-1.0)               /(1.0-exp(1.0/epsilon[istate][0])))
-                    * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1])/(1.0-exp(1.0/epsilon[istate][1])));
-    }else if(dim == 3){
-        const real x = point[0], y = point[1], z = point[2];
-        gradient[0] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0])/(1.0-exp(1.0/epsilon[istate][0])))
-                    * (y + (exp(y/epsilon[istate][1])-1.0)               /(1.0-exp(1.0/epsilon[istate][1])))
-                    * (z + (exp(z/epsilon[istate][2])-1.0)               /(1.0-exp(1.0/epsilon[istate][2])));
-        gradient[1] = (x + (exp(x/epsilon[istate][0])-1.0)               /(1.0-exp(1.0/epsilon[istate][0])))
-                    * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1])/(1.0-exp(1.0/epsilon[istate][1])))
-                    * (z + (exp(z/epsilon[istate][2])-1.0)               /(1.0-exp(1.0/epsilon[istate][2])));
-        gradient[2] = (x + (exp(x/epsilon[istate][0])-1.0)               /(1.0-exp(1.0/epsilon[istate][0])))
-                    * (y + (exp(y/epsilon[istate][1])-1.0)               /(1.0-exp(1.0/epsilon[istate][1])))
-                    * (1 + (exp(z/epsilon[istate][2])/epsilon[istate][2])/(1.0-exp(1.0/epsilon[istate][2])));
-    }
+    gradient[0] = -U_0 * exp(-k * point[1] / (5 * pow((point[0] + c), 0.5) / pow(Re, 0.5))) * (k * point[1] * pow(Re, 0.5)) / (10 * pow(point[0] + c, 1.5));
+    gradient[1] = U_0 * k / (5 * pow((point[0] + c), 0.5) / pow(Re, 0.5)) * exp(-k * point[1] / (5 * pow((point[0] + c), 0.5) / pow(Re, 0.5)));
+
+
+    // if(dim == 1){
+    //     const real x = point[0];
+    //     gradient[0] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0])/(1.0-exp(1.0/epsilon[istate][0])));
+    // }else if(dim == 2){
+    //     const real x = point[0], y = point[1];
+    //     gradient[0] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0])/(1.0-exp(1.0/epsilon[istate][0])))
+    //                 * (y + (exp(y/epsilon[istate][1])-1.0)               /(1.0-exp(1.0/epsilon[istate][1])));
+    //     gradient[1] = (x + (exp(x/epsilon[istate][0])-1.0)               /(1.0-exp(1.0/epsilon[istate][0])))
+    //                 * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1])/(1.0-exp(1.0/epsilon[istate][1])));
+    // }else if(dim == 3){
+    //     const real x = point[0], y = point[1], z = point[2];
+    //     gradient[0] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0])/(1.0-exp(1.0/epsilon[istate][0])))
+    //                 * (y + (exp(y/epsilon[istate][1])-1.0)               /(1.0-exp(1.0/epsilon[istate][1])))
+    //                 * (z + (exp(z/epsilon[istate][2])-1.0)               /(1.0-exp(1.0/epsilon[istate][2])));
+    //     gradient[1] = (x + (exp(x/epsilon[istate][0])-1.0)               /(1.0-exp(1.0/epsilon[istate][0])))
+    //                 * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1])/(1.0-exp(1.0/epsilon[istate][1])))
+    //                 * (z + (exp(z/epsilon[istate][2])-1.0)               /(1.0-exp(1.0/epsilon[istate][2])));
+    //     gradient[2] = (x + (exp(x/epsilon[istate][0])-1.0)               /(1.0-exp(1.0/epsilon[istate][0])))
+    //                 * (y + (exp(y/epsilon[istate][1])-1.0)               /(1.0-exp(1.0/epsilon[istate][1])))
+    //                 * (1 + (exp(z/epsilon[istate][2])/epsilon[istate][2])/(1.0-exp(1.0/epsilon[istate][2])));
+    // }
     return gradient;
 }
 
@@ -873,50 +874,59 @@ inline dealii::SymmetricTensor<2,dim,real> ManufacturedSolutionAtan<dim,real>
 
 template <int dim, typename real>
 inline dealii::SymmetricTensor<2,dim,real> ManufacturedSolutionBoundaryLayer<dim,real>
-::hessian(const dealii::Point<dim,real> &point, const unsigned int istate) const
+::hessian(const dealii::Point<dim,real> &point, const unsigned int /*istate*/) const
 {
     dealii::SymmetricTensor<2,dim,real> hessian;
-    if (dim==1) {
-        const real x = point[0];
-        hessian[0][0] = (exp(x/epsilon[istate][0])/pow(epsilon[istate][0],2)/(1.0-exp(1.0/epsilon[istate][0])));
-    }
-    if (dim==2) {
-        real x = point[0], y = point[1];
-        hessian[0][0] = (exp(x/epsilon[istate][0])/pow(epsilon[istate][0],2)/(1.0-exp(1.0/epsilon[istate][0])))
-                      * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])));
-        hessian[0][1] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0]) /(1.0-exp(1.0/epsilon[istate][0])))
-                      * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1]) /(1.0-exp(1.0/epsilon[istate][1])));
+        hessian[0][0] = U_0 * exp(-k * point[1] / (5 * pow(point[0] + c, 0.5) / pow(Re, 0.5))) * (k * point[1] * pow(Re, 0.5) / (10 * pow(point[0] + c, 1.5))) * (k / (2 * 5 / pow(Re, 0.5))) - (3 * k * point[1] * pow(Re, 0.5)) / (20 * pow(point[0] + c, 5 / 2.0));
+        hessian[0][1] = exp(-k * point[1] / (5 * pow((point[0] + c),0.5) / pow(Re, 0.5))) * (-k * pow(Re,0.5) / (10 * pow(point[0] + c, 1.5)) + k * k * point[1] / (50 * pow(point[0] + c, 1.5)));
+        hessian[1][0] = hessian[0][1];
+        hessian[1][1] = -U_0 * k * k / (5 * pow((point[0] + c),0.5) / pow(Re, 0.5)) / (5 * pow((point[0] + c), 0.5) / pow(Re, 0.5))* exp(-k * point[1] / (5 * pow((point[0] + c), 0.5) / pow(Re, 0.5)));
+    
+
+
+
+
+    // if (dim==1) {
+    //     const real x = point[0];
+    //     hessian[0][0] = (exp(x/epsilon[istate][0])/pow(epsilon[istate][0],2)/(1.0-exp(1.0/epsilon[istate][0])));
+    // }
+    // if (dim==2) {
+    //     real x = point[0], y = point[1];
+    //     hessian[0][0] = (exp(x/epsilon[istate][0])/pow(epsilon[istate][0],2)/(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])));
+    //     hessian[0][1] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0]) /(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1]) /(1.0-exp(1.0/epsilon[istate][1])));
         
-        hessian[1][0] = hessian[0][1];
-        hessian[1][1] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
-                      * (exp(y/epsilon[istate][1])/pow(epsilon[istate][1],2)/(1.0-exp(1.0/epsilon[istate][1])));
-    }
-    if (dim==3) {
-        real x = point[0], y = point[1], z = point[2];
-        hessian[0][0] = (exp(x/epsilon[istate][0])/pow(epsilon[istate][0],2)/(1.0-exp(1.0/epsilon[istate][0])))
-                      * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])))
-                      * (z + (exp(z/epsilon[istate][2])-1.0)                /(1.0-exp(1.0/epsilon[istate][2])));
-        hessian[0][1] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0]) /(1.0-exp(1.0/epsilon[istate][0])))
-                      * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1]) /(1.0-exp(1.0/epsilon[istate][1])))
-                      * (z + (exp(z/epsilon[istate][2])-1.0)                /(1.0-exp(1.0/epsilon[istate][2])));
-        hessian[0][2] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0]) /(1.0-exp(1.0/epsilon[istate][0])))
-                      * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])))
-                      * (1 + (exp(z/epsilon[istate][2])/epsilon[istate][2]) /(1.0-exp(1.0/epsilon[istate][2])));
+    //     hessian[1][0] = hessian[0][1];
+    //     hessian[1][1] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (exp(y/epsilon[istate][1])/pow(epsilon[istate][1],2)/(1.0-exp(1.0/epsilon[istate][1])));
+    // }
+    // if (dim==3) {
+    //     real x = point[0], y = point[1], z = point[2];
+    //     hessian[0][0] = (exp(x/epsilon[istate][0])/pow(epsilon[istate][0],2)/(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])))
+    //                   * (z + (exp(z/epsilon[istate][2])-1.0)                /(1.0-exp(1.0/epsilon[istate][2])));
+    //     hessian[0][1] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0]) /(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1]) /(1.0-exp(1.0/epsilon[istate][1])))
+    //                   * (z + (exp(z/epsilon[istate][2])-1.0)                /(1.0-exp(1.0/epsilon[istate][2])));
+    //     hessian[0][2] = (1 + (exp(x/epsilon[istate][0])/epsilon[istate][0]) /(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])))
+    //                   * (1 + (exp(z/epsilon[istate][2])/epsilon[istate][2]) /(1.0-exp(1.0/epsilon[istate][2])));
 
-        hessian[1][0] = hessian[0][1];
-        hessian[1][1] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
-                      * (exp(y/epsilon[istate][1])/pow(epsilon[istate][1],2)/(1.0-exp(1.0/epsilon[istate][1])))
-                      * (z + (exp(z/epsilon[istate][2])-1.0)                /(1.0-exp(1.0/epsilon[istate][2])));
-        hessian[1][2] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
-                      * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1]) /(1.0-exp(1.0/epsilon[istate][1])))
-                      * (1 + (exp(z/epsilon[istate][2])/epsilon[istate][2]) /(1.0-exp(1.0/epsilon[istate][2])));
+    //     hessian[1][0] = hessian[0][1];
+    //     hessian[1][1] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (exp(y/epsilon[istate][1])/pow(epsilon[istate][1],2)/(1.0-exp(1.0/epsilon[istate][1])))
+    //                   * (z + (exp(z/epsilon[istate][2])-1.0)                /(1.0-exp(1.0/epsilon[istate][2])));
+    //     hessian[1][2] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (1 + (exp(y/epsilon[istate][1])/epsilon[istate][1]) /(1.0-exp(1.0/epsilon[istate][1])))
+    //                   * (1 + (exp(z/epsilon[istate][2])/epsilon[istate][2]) /(1.0-exp(1.0/epsilon[istate][2])));
 
-        hessian[2][0] = hessian[0][2];
-        hessian[2][1] = hessian[2][1];
-        hessian[2][2] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
-                      * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])))
-                      * (exp(z/epsilon[istate][2])/pow(epsilon[istate][2],2)/(1.0-exp(1.0/epsilon[istate][2])));
-    }
+    //     hessian[2][0] = hessian[0][2];
+    //     hessian[2][1] = hessian[2][1];
+    //     hessian[2][2] = (x + (exp(x/epsilon[istate][0])-1.0)                /(1.0-exp(1.0/epsilon[istate][0])))
+    //                   * (y + (exp(y/epsilon[istate][1])-1.0)                /(1.0-exp(1.0/epsilon[istate][1])))
+    //                   * (exp(z/epsilon[istate][2])/pow(epsilon[istate][2],2)/(1.0-exp(1.0/epsilon[istate][2])));
+    // }
     return hessian;
 }
 

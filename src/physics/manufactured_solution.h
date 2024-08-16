@@ -407,6 +407,23 @@ public:
     /// Hessian
     dealii::SymmetricTensor<2,dim,real> hessian (const dealii::Point<dim,real> &point, const unsigned int istate = 0) const override;
 
+    // Scaling constant
+    const double k = 0.05;
+
+    // Boundary Layer Offset
+    const double c = 0.01;
+
+    // Kinematic viscosity
+    const double nu = 1.48e-5;
+
+    // Free-stream Velocity
+    const double U_0 = 1.0;
+
+    // Yeynold's number in normal direction
+    double Re = U_0 * (1.0 / nu);
+
+
+
 private:
     /// Boundary layer strength parameter
     std::vector<dealii::Tensor<1,dim,real>> epsilon;

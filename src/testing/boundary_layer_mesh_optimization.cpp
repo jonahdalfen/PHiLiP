@@ -5,6 +5,7 @@
 #include "mesh/mesh_adaptation/mesh_error_estimate.h"
 #include "mesh/mesh_adaptation/mesh_adaptation.h"
 #include "mesh/mesh_adaptation/mesh_optimizer.hpp"
+#include "mesh/mesh_adaptation/anisotropic_mesh_adaptation.h"
 
 
 
@@ -205,7 +206,25 @@ int BoundaryLayerMeshOptimization<dim, nstate> :: run_test() const
     flow_solver->run();
     output_vtk_files(flow_solver->dg, ++output_val);
 
-/*
+    
+    const bool use_goal_oriented_approach = param.mesh_adaptation_param.use_goal_oriented_mesh_adaptation;
+    const double complexity = param.mesh_adaptation_param.mesh_complexity_anisotropic_adaptation;
+    const double normLp = param.mesh_adaptation_param.norm_Lp_anisotropic_adaptation;
+    std::unique_ptr<AnisotropicMeshAdaptation<dim, nstate, double>> anisotropic_mesh_adaptation =
+                        std::make_unique<AnisotropicMeshAdaptation<dim, nstate, double>> (flow_solver->dg, normLp, complexity, use_goal_oriented_approach);
+
+    flow_solver->run();
+    const unsigned int n_adaptation_cycles = param.mesh_adaptation_param.total_mesh_adaptation_cycles;
+    
+    for(unsigned int cycle = 0; cycle < n_adaptation_cycles; ++cycle)
+    {
+        anisotropic_mesh_adaptation->adapt_mesh();
+        flow_solver->run();
+    }
+
+
+// top
+
     dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson;
     evaluate_regularization_matrix(regularization_matrix_poisson, flow_solver->dg);
     std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = 
@@ -214,27 +233,31 @@ int BoundaryLayerMeshOptimization<dim, nstate> :: run_test() const
     const bool output_refined_nodes = false;
     const bool use_oneD_parameteriation = true;
 
-    
-    mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson, use_oneD_parameteriation, output_refined_nodes, output_val);
-   std::cout<<"Completed optimization with p0."<<std::endl;
-   flow_solver->run();
-*/
+
+// bottom
+//    mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson, use_oneD_parameteriation, output_refined_nodes, output_val);
+//    std::cout<<"Completed optimization with p0."<<std::endl;
+//    flow_solver->run();
+
     // write_solution_volume_nodes_to_file(flow_solver->dg);
 
     // read_solution_volume_nodes_from_file(flow_solver->dg);
-    output_vtk_files(flow_solver->dg, output_val+1);
-  
-    // std::cout<<"Interpolating grid from q1 to q2."<<std::endl;
-    // const unsigned int grid_degree_updated = 2;
-    // flow_solver->dg->high_order_grid->set_q_degree(grid_degree_updated, true);
-    /*
+    // output_vtk_files(flow_solver->dg, output_val+1);
+// top
+
+    std::cout<<"Interpolating grid from q1 to q2."<<std::endl;
+    const unsigned int grid_degree_updated = 2;
+    flow_solver->dg->high_order_grid->set_q_degree(grid_degree_updated, true);
+    
     output_vtk_files(flow_solver->dg, output_val+1);
     dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson_q2;
     evaluate_regularization_matrix(regularization_matrix_poisson_q2, flow_solver->dg);
     mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson_q2, use_oneD_parameteriation, output_refined_nodes, output_val);
     output_vtk_files(flow_solver->dg, output_val+1);
     write_solution_volume_nodes_to_file(flow_solver->dg);
-    */
+
+
+// bottom
     // Refine and interpolate the mesh
     // read_solution_volume_nodes_from_file(flow_solver->dg);
     /*
@@ -264,6 +287,7 @@ int BoundaryLayerMeshOptimization<dim, nstate> :: run_test() const
 
 #if PHILIP_DIM==2
 template class BoundaryLayerMeshOptimization <PHILIP_DIM, PHILIP_DIM+2>;
+template class BoundaryLayerMeshOptimization <PHILIP_DIM, 1>;
 #endif
 
 } // namespace Tests

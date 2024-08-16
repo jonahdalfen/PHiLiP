@@ -4,9 +4,9 @@
 set dimension = 2
 
 set test_type = boundary_layer_mesh_optimization
-set pde_type  = navier_stokes
+set pde_type  = advection
 
-set conv_num_flux = roe
+set conv_num_flux = lax_friedrichs
 set diss_num_flux = symm_internal_penalty
 
 # DG related parameters
@@ -14,31 +14,6 @@ set overintegration = 8
 set use_weak_form = true
 # set flux_nodes_type = GL
 
-subsection euler
-  set reference_length = 1.0
-  set mach_infinity = 0.2
-  set angle_of_attack = 0.0
-end
-
-subsection navier_stokes
-  set reynolds_number_inf                 = 50000.0
-  set prandtl_number                      = 0.72
-  set temperature_inf                     = 300.00
-  set nondimensionalized_isothermal_wall_temperature = 1.0
-  set thermal_boundary_condition_type = isothermal
-  set use_constant_viscosity = true
-  set nondimensionalized_constant_viscosity = 1.0
-end
-
-subsection mesh adaptation
-    set total_mesh_adaptation_cycles = 1
-    set use_goal_oriented_mesh_adaptation = false
-    set mesh_adaptation_type = h_adaptation
-    subsection fixed-fraction
-      set refine_fraction = 1.0
-      set h_coarsen_fraction = 0.0
-    end
-end
 
 subsection ODE solver
   set output_solution_every_x_steps = 1
@@ -92,9 +67,16 @@ subsection linear solver
 end
 
 subsection functional
-  # functional choice
-  set functional_type = total_skin_friction
-end
+    # functional choice
+    set functional_type = normLp_boundary
+
+    # exponent
+    set normLp = 1.0
+
+    # boundaries to be used
+    set boundary_vector = [1,2]
+    set use_all_boundaries = false
+  end
 
 subsection optimization
     set optimization_type = full_space
@@ -107,7 +89,7 @@ subsection optimization
     set line_search_method = Backtracking
     set line_search_curvature = Null Curvature Condition
     set full_space_preconditioner = P2A
-    set mesh_weight_factor = 0.02 #0.5
+    set mesh_weight_factor = 0.2 #0.5
 
     set regularization_parameter_control = 1.0
     set regularization_parameter_sim = 1.0
@@ -117,29 +99,42 @@ subsection optimization
 end
 
 subsection flow_solver
-  set flow_case_type = airfoil_2D
+  set flow_case_type = non_periodic_cube_flow
   set steady_state = true
-  #set steady_state_polynomial_ramping = true
-  set poly_degree = 0
-  set max_poly_degree_for_adaptation = 2
-  # set constant_time_step = 2E-4  
-  # set final_time = 4
-  # set do_compute_unsteady_data_and_write_to_table = true
-  # set unsteady_data_table_filename = NACA0012_Dealii
+  set poly_degree = 1
+  set max_poly_degree_for_adaptation = 3
+
   subsection grid
-	# set input_mesh_filename = ../../../meshes/naca0012_hopw_ref0
-    subsection airfoil_2D
-      set airfoil_length = 1.0
-      set height = 5.0
-      set length_b2 = 10.0
-      set incline_factor = 0.1
-      set bias_factor = 1.5
-      set refinements = 0
-      set n_subdivision_x_0 = 10
-      set n_subdivision_x_1 = 3
-      set n_subdivision_x_2 = 12
-      set n_subdivision_y = 5
-      set airfoil_sampling_factor = 1
+    set number_of_mesh_refinements = 5
     end
+end
+
+
+subsection manufactured solution convergence study
+  set use_manufactured_source_term = true
+  set manufactured_solution_type   = boundary_layer_solution
+
+  # setting the default diffusion tensor
+  set diffusion_00 = 1
+  set diffusion_01 = 0
+  set diffusion_10 = 0
+  set diffusion_11 = 1
+
+  # setting the advection vector
+  set advection_0 = 1
+  set advection_1 = -1 
+
+  # setting the diffusion coefficient
+  set diffusion_coefficient = 0.1
+  
+end
+
+subsection mesh adaptation
+  set total_mesh_adaptation_cycles = 20
+  set mesh_adaptation_type = anisotropic_adaptation
+  set use_goal_oriented_mesh_adaptation = false
+  subsection anisotropic
+    set mesh_complexity_anisotropic_adaptation = 15
+    set norm_Lp_anisotropic_adaptation = 1
   end
 end

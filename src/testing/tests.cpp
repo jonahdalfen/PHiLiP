@@ -311,7 +311,7 @@ std::unique_ptr< TestsBase > TestsFactory<dim,nstate,MeshType>
     } else if(test_type == Test_enum::khi_robustness) {
         if constexpr (dim==2 && nstate==dim+2)  return std::make_unique<KHIRobustness<dim, nstate>>(parameters_input, parameter_handler_input);
     } else if(test_type == Test_enum::boundary_layer_mesh_optimization) {
-        if constexpr (dim==2 && nstate==dim+2)  return std::make_unique<BoundaryLayerMeshOptimization<dim, nstate>>(parameters_input, parameter_handler_input);
+        if constexpr ((dim==2 && nstate==dim+2) ||  (dim==2 && nstate==1)) return std::make_unique<BoundaryLayerMeshOptimization<dim, nstate>>(parameters_input, parameter_handler_input);
     } else {
         std::cout << "Invalid test. You probably forgot to add it to the list of tests in tests.cpp" << std::endl;
         std::abort();
